@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model auditoria_servicios {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  servicio_id      String           @db.Uuid
+  usuario_admin_id String           @db.Uuid
+  estado_anterior  estado_servicio?
+  estado_nuevo     estado_servicio
+  observacion      String?
+  fecha_accion     DateTime?        @default(now()) @db.Timestamptz(6)
+  servicios        servicios        @relation(fields: [servicio_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuarios         usuarios         @relation(fields: [usuario_admin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cuentas_cobro {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  usuario_id       String           @db.Uuid
+  mes              Int
+  anio             Int
+  estado           estado_servicio? @default(Pendiente)
+  radicada         Boolean          @default(false)
+  fecha_creacion   DateTime?        @default(now()) @db.Timestamptz(6)
+  fecha_aprobacion DateTime?        @db.Timestamptz(6)
+  usuarios         usuarios         @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  servicios        servicios[]
+
+  @@unique([usuario_id, mes, anio], map: "unique_cuenta_mensual")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model excepciones_carga {
+  id                                              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  usuario_id                                      String    @db.Uuid
+  fecha_vencimiento                               DateTime  @db.Date
+  motivo                                          String?
+  creado_por                                      String    @db.Uuid
+  created_at                                      DateTime? @default(now()) @db.Timestamptz(6)
+  usuarios_excepciones_carga_creado_porTousuarios usuarios  @relation("excepciones_carga_creado_porTousuarios", fields: [creado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  usuarios_excepciones_carga_usuario_idTousuarios usuarios  @relation("excepciones_carga_usuario_idTousuarios", fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model servicios {
+  id                     String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  cuenta_cobro_id        String                @db.Uuid
+  tipo_servicio_id       String                @db.Uuid
+  numero_orden           String                @db.VarChar(50)
+  descripcion_especifica String?
+  valor_cobrado          Decimal               @db.Decimal(12, 2)
+  estado                 estado_servicio?      @default(Pendiente)
+  created_at             DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?             @default(now()) @db.Timestamptz(6)
+  auditoria_servicios    auditoria_servicios[]
+  cuentas_cobro          cuentas_cobro         @relation(fields: [cuenta_cobro_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tipos_servicio         tipos_servicio        @relation(fields: [tipo_servicio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([cuenta_cobro_id, numero_orden], map: "unique_orden_por_cuenta")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tipos_servicio {
+  id             String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nombre         String      @unique @db.VarChar(100)
+  descripcion    String?
+  valor_estandar Decimal     @db.Decimal(12, 2)
+  activo         Boolean?    @default(true)
+  created_at     DateTime?   @default(now()) @db.Timestamptz(6)
+  servicios      servicios[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model usuarios {
+  id                                                       String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  username                                                 String                @unique @db.VarChar(50)
+  password_hash                                            String
+  nombre_completo                                          String                @db.VarChar(150)
+  email                                                    String                @unique @db.VarChar(100)
+  rol                                                      rol_usuario           @default(Tecnico)
+  sede                                                     String?               @default("Bucaramanga") @db.VarChar(50)
+  activo                                                   Boolean?              @default(true)
+  created_at                                               DateTime?             @default(now()) @db.Timestamptz(6)
+  auditoria_servicios                                      auditoria_servicios[]
+  cuentas_cobro                                            cuentas_cobro[]
+  excepciones_carga_excepciones_carga_creado_porTousuarios excepciones_carga[]   @relation("excepciones_carga_creado_porTousuarios")
+  excepciones_carga_excepciones_carga_usuario_idTousuarios excepciones_carga[]   @relation("excepciones_carga_usuario_idTousuarios")
+}
+
+enum estado_servicio {
+  Pendiente
+  Aprobado
+  Observado
+  Rechazado
+}
+
+enum rol_usuario {
+  Tecnico
+  Admin
+}

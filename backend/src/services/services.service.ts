@@ -444,7 +444,7 @@ export class ServicesService {
       orderBy: { nombre: 'asc' },
     });
 
-    return tipos.map((t) => ({
+    return tipos.map((t: any) => ({
       id: t.id,
       nombre: t.nombre,
       descripcion: t.descripcion,
@@ -465,6 +465,6 @@ export class ServicesService {
       orderBy: [{ anio: 'desc' }, { mes: 'desc' }],
     });
 
-    return cuentas.map((c) => this.serializeCuenta(c));
+    return cuentas.map((c: any) => this.serializeCuenta(c));
   }
 }

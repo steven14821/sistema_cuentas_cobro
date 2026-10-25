@@ -1,0 +1,12 @@
+{
+  "name": "sistema-cuentas-cobro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Root project for Sistema de Cuentas de Cobro",
+  "scripts": {
+    "backend:dev": "cd backend && npm run start:dev",
+    "backend:build": "cd backend && npm run build",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build"
+  }
+}

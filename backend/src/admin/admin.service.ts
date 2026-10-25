@@ -142,7 +142,7 @@ export class AdminService {
       where: { cuenta_cobro_id: cuentaId },
     });
 
-    const estados = new Set(servicios.map((s) => s.estado));
+    const estados = new Set(servicios.map((s: any) => s.estado));
     if (estados.size !== 1) return; // estados mixtos: se deja el actual
 
     const estado = [...estados][0] as EstadoServicio;
@@ -176,7 +176,7 @@ export class AdminService {
       orderBy: [{ anio: 'desc' }, { mes: 'desc' }],
     });
 
-    return cuentas.map((c) => this.serializeCuenta(c));
+    return cuentas.map((c: any) => this.serializeCuenta(c));
   }
 
   async getAccountById(cuentaId: string) {
@@ -219,7 +219,7 @@ export class AdminService {
       throw new BadRequestException('La cuenta aún no ha sido radicada.');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: any) => {
       for (const servicio of cuenta.servicios) {
         await tx.auditoria_servicios.create({
           data: {
@@ -264,7 +264,7 @@ export class AdminService {
       orderBy: [{ anio: 'desc' }, { mes: 'desc' }],
     });
 
-    const serializadas = cuentas.map((c) => this.serializeCuenta(c));
+    const serializadas = cuentas.map((c: any) => this.serializeCuenta(c));
 
     const porEstado = {
       total: serializadas.length,
@@ -309,7 +309,7 @@ export class AdminService {
       },
       tecnicos: {
         total: tecnicos.length,
-        activos: tecnicos.filter((t) => t.activo).length,
+        activos: tecnicos.filter((t: any) => t.activo).length,
       },
       recientes: serializadas.slice(0, 5),
     };
@@ -327,7 +327,7 @@ export class AdminService {
       orderBy: { created_at: 'desc' },
     });
 
-    return excepciones.map((e) => ({
+    return excepciones.map((e: any) => ({
       id: e.id,
       usuario_id: e.usuario_id,
       tecnico: e.usuarios_excepciones_carga_usuario_idTousuarios?.nombre_completo ?? null,
@@ -502,7 +502,7 @@ export class AdminService {
     }
 
     // Eliminación ordenada en transacción para cumplir la integridad referencial
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: any) => {
       // 1. Eliminar excepciones asociadas a este usuario
       await tx.excepciones_carga.deleteMany({
         where: { usuario_id: userId },
@@ -513,14 +513,14 @@ export class AdminService {
         where: { usuario_id: userId },
         select: { id: true },
       });
-      const cuentaIds = cuentas.map((c) => c.id);
+      const cuentaIds = cuentas.map((c: any) => c.id);
 
       if (cuentaIds.length > 0) {
         const servicios = await tx.servicios.findMany({
           where: { cuenta_cobro_id: { in: cuentaIds } },
           select: { id: true },
         });
-        const servicioIds = servicios.map((s) => s.id);
+        const servicioIds = servicios.map((s: any) => s.id);
 
         if (servicioIds.length > 0) {
           await tx.auditoria_servicios.deleteMany({

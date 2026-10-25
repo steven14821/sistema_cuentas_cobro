@@ -1,0 +1,60 @@
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Build Backend
+FROM node:20-alpine AS backend-build
+WORKDIR /app/backend
+COPY backend/package*.json ./
+COPY backend/prisma ./prisma/
+RUN npm install
+RUN npx prisma generate
+COPY backend/ .
+RUN npm run build
+
+# Stage 3: Final Image
+FROM node:20-alpine
+WORKDIR /app
+
+# Install Nginx to serve the frontend
+RUN apk add --no-cache nginx
+
+# Copy backend from build stage
+COPY --from=backend-build /app/backend/package*.json ./backend/
+COPY --from=backend-build /app/backend/node_modules ./backend/node_modules
+COPY --from=backend-build /app/backend/dist ./backend/dist
+COPY --from=backend-build /app/backend/prisma ./backend/prisma
+
+# Copy frontend build to Nginx directory
+COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
+
+# Copy a basic Nginx config to proxy /api to the backend
+COPY <<EOF /etc/nginx/http.d/default.conf
+server {
+    listen 80;
+
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOF
+
+EXPOSE 80
+
+# Script to start both Nginx and NestJS
+CMD ["sh", "-c", "nginx && cd backend && npm run start:prod"]
