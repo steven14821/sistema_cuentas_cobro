@@ -54,6 +54,8 @@ server {
 }
 EOF
 
+# Render uses port 10000 by default for Web Services, but our Nginx is on 80.
+# We expose 80 for the internal proxy and Nginx.
 EXPOSE 80
 
 # Script to start both Nginx and NestJS
