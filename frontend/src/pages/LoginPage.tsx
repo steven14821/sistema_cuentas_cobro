@@ -307,7 +307,7 @@ export const LoginPage = () => {
               🚀 Admin Test
             </button>
             <button 
-              onClick={() => quickLogin('predo@em.com', 'password123')} 
+              onClick={() => quickLogin('pruebabuc@em.com', 'password123')} 
               style={{ 
                 fontSize: '11px', 
                 padding: '4px 8px', 
