@@ -332,90 +332,65 @@ export const AdminReviewPage = () => {
                     : 'Ninguna cuenta coincide con los filtros aplicados.'}
                 </Empty>
               ) : (
-                <div className="table-container">
-                  <div className="desktop-table">
-                    <table style={tableStyle}>
-                      <thead>
-                        <tr style={theadRow}>
-                          <th style={th}>Técnico</th>
-                          <th style={th}>Sede</th>
-                          <th style={th}>Período</th>
-                          <th style={th}>Servicios</th>
-                          <th style={th}>Estado</th>
-                          <th style={{ ...th, textAlign: 'right' }}>Total</th>
-                          <th style={{ ...th, textAlign: 'right' }}>Acción</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cuentasFiltradas.map((a) => (
-                          <tr
-                            key={a.id}
-                            style={{ ...tbodyRow, cursor: 'pointer' }}
-                            onClick={() => navigate(`/admin/cuentas/${a.id}`)}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8faff')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                          >
-                            <td style={{ ...td, fontWeight: 600 }}>{a.tecnico ?? '—'}</td>
-                            <td style={td}>
-                              {a.tecnico_sede ? (
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    backgroundColor: a.tecnico_sede === 'Cucuta' ? '#fdf2f8' : '#eff6ff',
-                                    color: a.tecnico_sede === 'Cucuta' ? '#9d174d' : '#1e40af',
-                                    border: `1px solid ${a.tecnico_sede === 'Cucuta' ? '#fbcfe8' : '#bfdbfe'}`,
+                <div className="table-scroll table-wide">
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr style={theadRow}>
+                        <th style={th}>Técnico</th>
+                        <th style={th}>Sede</th>
+                        <th style={th}>Período</th>
+                        <th style={th}>Servicios</th>
+                        <th style={th}>Estado</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Total</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cuentasFiltradas.map((a) => (
+                        <tr
+                          key={a.id}
+                          style={{ ...tbodyRow, cursor: 'pointer' }}
+                          onClick={() => navigate(`/admin/cuentas/${a.id}`)}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8faff')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          <td style={{ ...td, fontWeight: 600 }}>{a.tecnico ?? '—'}</td>
+                          <td style={td}>
+                            {a.tecnico_sede ? (
+                              <span
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  backgroundColor: a.tecnico_sede === 'Cucuta' ? '#fdf2f8' : '#eff6ff',
+                                  color: a.tecnico_sede === 'Cucuta' ? '#9d174d' : '#1e40af',
+                                  border: `1px solid ${a.tecnico_sede === 'Cucuta' ? '#fbcfe8' : '#bfdbfe'}`,
                                 }}
                                 >
                                   {a.tecnico_sede === 'Cucuta' ? 'CUC' : 'BUC'}
                                 </span>
                               ) : '—'}
-                            </td>
-                            <td style={td}>{nombreMes(a.mes)} {a.anio}</td>
-                            <td style={td}>{a.total_servicios} servicio{a.total_servicios !== 1 ? 's' : ''}</td>
-                            <td style={td}>
-                              <EstadoBadge estado={a.estado} />
-                            </td>
-                            <td style={{ ...td, fontWeight: 600, textAlign: 'right' }}>{formatCOP(a.total)}</td>
-                            <td style={{ ...td, textAlign: 'right' }}>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); navigate(`/admin/cuentas/${a.id}`); }}
-                                style={reviewBtn}
-                              >
-                                Ver detalle →
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mobile-cards">
-                    {cuentasFiltradas.map((a) => (
-                      <div
-                        key={a.id}
-                        style={cardStyle}
-                        onClick={() => navigate(`/admin/cuentas/${a.id}`)}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--ink)' }}>{a.tecnico ?? '—'}</span>
-                          <EstadoBadge estado={a.estado} />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                          <div><strong style={{ color: 'var(--ink)' }}>Sede:</strong> {a.tecnico_sede === 'Cucuta' ? 'CUC' : a.tecnico_sede === 'Bucaramanga' ? 'BUC' : a.tecnico_sede ?? '—'}</div>
-                          <div><strong style={{ color: 'var(--ink)' }}>Período:</strong> {nombreMes(a.mes)} {a.anio}</div>
-                          <div><strong style={{ color: 'var(--ink)' }}>Servicios:</strong> {a.total_servicios}</div>
-                          <div style={{ fontWeight: 600, color: 'var(--ink)' }}><strong style={{ color: 'var(--ink)' }}>Total:</strong> {formatCOP(a.total)}</div>
-                        </div>
-                        <button style={{ ...reviewBtn, width: '100%', marginTop: '12px', textAlign: 'center' }}>
-                          Ver detalle →
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                          </td>
+                          <td style={td}>{nombreMes(a.mes)} {a.anio}</td>
+                          <td style={td}>{a.total_servicios} servicio{a.total_servicios !== 1 ? 's' : ''}</td>
+                          <td style={td}>
+                            <EstadoBadge estado={a.estado} />
+                          </td>
+                          <td style={{ ...td, fontWeight: 600, textAlign: 'right' }}>{formatCOP(a.total)}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/admin/cuentas/${a.id}`); }}
+                              style={reviewBtn}
+                            >
+                              Ver detalle →
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
