@@ -5,17 +5,27 @@ import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   dotenv.config();
-  const app = await NestFactory.create(AppModule);
+  console.log('🚀 Starting bootstrap process...');
   
-  // Habilitar CORS para desarrollo y producción
-  app.enableCors();
+  try {
+    const app = await NestFactory.create(AppModule);
+    console.log('✅ NestFactory created app instance');
+    
+    // Habilitar CORS para desarrollo y producción
+    app.enableCors();
 
-  // Validación global de DTOs
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    // Validación global de DTOs
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  // FORZAR puerto 3000 en producción para evitar colisión con Nginx (puerto 80)
-  const port = process.env.NODE_ENV === 'production' ? 3000 : (parseInt(process.env.PORT ?? '', 10) || 3000);
-  await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
+    // FORZAR puerto 3000 en producción para evitar colisión con Nginx (puerto 80)
+    const port = process.env.NODE_ENV === 'production' ? 3000 : (parseInt(process.env.PORT ?? '', 10) || 3000);
+    
+    console.log(`📡 Attempting to listen on port: ${port}...`);
+    await app.listen(port);
+    console.log(`🚀 Application is successfully running on: http://localhost:${port}`);
+  } catch (error) {
+    console.error('❌ Critical error during bootstrap:', error);
+    process.exit(1);
+  }
 }
 bootstrap();
