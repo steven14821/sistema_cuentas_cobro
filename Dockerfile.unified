@@ -54,9 +54,10 @@ server {
 }
 EOF
 
-# Render uses port 10000 by default for Web Services, but our Nginx is on 80.
-# We expose 80 for the internal proxy and Nginx.
+# Render port binding: 
+# 1. Nginx listens on 80 (External)
+# 2. NestJS listens on 3000 (Internal)
 EXPOSE 80
 
-# Script to start both Nginx and NestJS
-CMD ["sh", "-c", "nginx && cd backend && npm run start:prod"]
+# Ensure PORT is set to 3000 for NestJS regardless of Render's default
+CMD ["sh", "-c", "nginx && export PORT=3000 && cd backend && npm run start:prod"]
