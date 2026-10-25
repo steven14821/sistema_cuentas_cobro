@@ -307,7 +307,7 @@ export const LoginPage = () => {
               🚀 Admin Test
             </button>
             <button 
-              onClick={() => quickLogin('tech@em.com', 'password123')} 
+              onClick={() => quickLogin('predo@em.com', 'password123')} 
               style={{ 
                 fontSize: '11px', 
                 padding: '4px 8px', 
@@ -317,7 +317,20 @@ export const LoginPage = () => {
                 backgroundColor: '#fff' 
               }}
             >
-              🛠️ Tech Test
+              🛠️ Tech BUC
+            </button>
+            <button 
+              onClick={() => quickLogin('pruebacuc@em.com', 'password123')} 
+              style={{ 
+                fontSize: '11px', 
+                padding: '4px 8px', 
+                cursor: 'pointer', 
+                borderRadius: '6px', 
+                border: '1px solid #ccc',
+                backgroundColor: '#fff' 
+              }}
+            >
+              🛠️ Tech CUC
             </button>
           </div>
           {/* -------------------------------------------- */}
