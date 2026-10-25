@@ -167,7 +167,7 @@ export class AdminService {
         ...(filtro.usuario_id ? { usuario_id: filtro.usuario_id } : {}),
       },
       include: {
-        usuarios: { select: { nombre_completo: true, email: true } },
+        usuarios: { select: { nombre_completo: true, email: true, sede: true } },
         servicios: {
           include: { tipos_servicio: true },
           orderBy: { created_at: 'asc' },
