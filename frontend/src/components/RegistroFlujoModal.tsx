@@ -526,27 +526,29 @@ export const RegistroFlujoModal = ({
                     <User size={15} />
                     Moto propia
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setTransportType('EMPRESA'); setError(''); }}
-                    style={{
-                      padding: '12px',
-                      borderRadius: '11px',
-                      border: transportType === 'EMPRESA' ? '2px solid var(--blue)' : '1px solid rgba(0,0,0,0.12)',
-                      background: transportType === 'EMPRESA' ? 'rgba(0,87,184,0.06)' : 'white',
-                      color: transportType === 'EMPRESA' ? 'var(--blue)' : 'var(--ink)',
-                      fontWeight: transportType === 'EMPRESA' ? '700' : '500',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <Truck size={15} />
-                    Vehículo empresa
-                  </button>
+                  {user?.sede !== 'Bucaramanga' && (
+                    <button
+                      type="button"
+                      onClick={() => { setTransportType('EMPRESA'); setError(''); }}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '11px',
+                        border: transportType === 'EMPRESA' ? '2px solid var(--blue)' : '1px solid rgba(0,0,0,0.12)',
+                        background: transportType === 'EMPRESA' ? 'rgba(0,87,184,0.06)' : 'white',
+                        color: transportType === 'EMPRESA' ? 'var(--blue)' : 'var(--ink)',
+                        fontWeight: transportType === 'EMPRESA' ? '700' : '500',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <Truck size={15} />
+                      Vehículo empresa
+                    </button>
+                  )}
                 </div>
               </fieldset>
 
