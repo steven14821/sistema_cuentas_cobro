@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { API_BASE } from '../lib/api';
+import { API_BASE, apiFetch } from '../lib/api';
 
 // Re-export for contexts that import directly from this module.
 export { API_BASE };
@@ -54,22 +54,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = useCallback(
     async (email: string, password: string): Promise<AuthUser> => {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message ?? 'Credenciales inválidas');
-      }
-
-      const data = await res.json();
-      const { accessToken, user: backendUser } = data as {
+      const data = await apiFetch<{
         accessToken: string;
         user: { id: string; email: string; nombre_completo: string; rol: string; sede?: string };
-      };
+      }>('/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      });
+
+      const { accessToken, user: backendUser } = data;
 
       const mapped: AuthUser = {
         id: backendUser.id,
