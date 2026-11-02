@@ -1,11 +1,13 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ApprovalEmailService, type ApprovalEmailResult } from './approval-email.service';
 import * as bcrypt from 'bcrypt';
 
 export type EstadoServicio = 'Pendiente' | 'Aprobado' | 'Observado' | 'Rechazado';
@@ -18,7 +20,12 @@ type FiltroCuentas = {
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(AdminService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private approvalEmail: ApprovalEmailService,
+  ) {}
 
   // ---- Serialización ----
 
@@ -70,6 +77,8 @@ export class AdminService {
       radicada: cuenta.radicada,
       fecha_creacion: cuenta.fecha_creacion,
       fecha_aprobacion: cuenta.fecha_aprobacion,
+      firma_tecnico: cuenta.firma_tecnico ?? null,
+      fecha_firma: cuenta.fecha_firma ?? null,
       total,
       total_servicios: serviciosPrincipales.length,
       servicios,
@@ -111,6 +120,11 @@ export class AdminService {
   ) {
     const servicio = await this.prisma.servicios.findUnique({
       where: { id: servicioId },
+      include: {
+        cuentas_cobro: {
+          include: { usuarios: { select: { nombre_completo: true, email: true } } },
+        },
+      },
     });
 
     if (!servicio) {
@@ -133,27 +147,113 @@ export class AdminService {
       data: { estado: status, updated_at: new Date() },
     });
 
-    await this.recomputeCuentaEstado(updated.cuenta_cobro_id);
+    const cuentaAprobada = await this.recomputeCuentaEstado(updated.cuenta_cobro_id);
+    const emailNotification = cuentaAprobada
+      ? await this.sendApprovalEmail(servicio.cuentas_cobro)
+      : undefined;
 
-    return this.serializeServicio(updated);
+    return {
+      ...this.serializeServicio(updated),
+      ...(emailNotification ? { email_notification: emailNotification } : {}),
+    };
+  }
+
+  async updateServiceType(servicioId: string, tipoServicioId: string, adminId: string) {
+    return this.prisma.$transaction(async (tx: any) => {
+      const servicio = await tx.servicios.findUnique({
+        where: { id: servicioId },
+        include: { cuentas_cobro: true, tipos_servicio: true },
+      });
+      if (!servicio) {
+        throw new NotFoundException('Servicio no encontrado.');
+      }
+      if (!servicio.cuentas_cobro?.radicada) {
+        throw new BadRequestException('Solo se puede cambiar el tipo de un servicio de una cuenta radicada.');
+      }
+
+      const nuevoTipo = await tx.tipos_servicio.findUnique({
+        where: { id: tipoServicioId },
+      });
+      if (!nuevoTipo?.activo) {
+        throw new BadRequestException('El tipo de servicio no existe o está inactivo.');
+      }
+      if (servicio.tipo_servicio_id === tipoServicioId) {
+        return this.serializeServicio(servicio);
+      }
+
+      const valorAnterior = Number(servicio.valor_cobrado);
+      const valorNuevo = Number(nuevoTipo.valor_estandar);
+      const updated = await tx.servicios.update({
+        where: { id: servicioId },
+        data: {
+          tipo_servicio_id: tipoServicioId,
+          valor_cobrado: valorNuevo,
+          updated_at: new Date(),
+        },
+        include: { tipos_servicio: true },
+      });
+
+      await tx.auditoria_servicios.create({
+        data: {
+          servicio_id: servicioId,
+          usuario_admin_id: adminId,
+          estado_anterior: servicio.estado,
+          estado_nuevo: servicio.estado,
+          observacion: `Tipo cambiado de "${servicio.tipos_servicio?.nombre ?? 'Sin tipo'}" a "${nuevoTipo.nombre}". Valor actualizado de ${valorAnterior} a ${valorNuevo}.`,
+          fecha_accion: new Date(),
+        },
+      });
+      await tx.cuentas_cobro.update({
+        where: { id: servicio.cuenta_cobro_id },
+        data: { firma_tecnico: null, fecha_firma: null },
+      });
+
+      return this.serializeServicio(updated);
+    });
   }
 
   // Si todos los servicios de la cuenta comparten estado, se refleja en la cuenta.
-  private async recomputeCuentaEstado(cuentaId: string) {
-    const servicios = await this.prisma.servicios.findMany({
-      where: { cuenta_cobro_id: cuentaId },
-    });
+  private async recomputeCuentaEstado(cuentaId: string): Promise<boolean> {
+    const [cuenta, servicios] = await Promise.all([
+      this.prisma.cuentas_cobro.findUnique({
+        where: { id: cuentaId },
+        select: { estado: true },
+      }),
+      this.prisma.servicios.findMany({
+        where: { cuenta_cobro_id: cuentaId },
+      }),
+    ]);
 
     const estados = new Set(servicios.map((s: any) => s.estado));
-    if (estados.size !== 1) return; // estados mixtos: se deja el actual
+    const estado = estados.size === 1 ? ([...estados][0] as EstadoServicio) : undefined;
+    if (!estado) return false;
 
-    const estado = [...estados][0] as EstadoServicio;
     await this.prisma.cuentas_cobro.update({
       where: { id: cuentaId },
       data: {
+        firma_tecnico: null,
+        fecha_firma: null,
         estado,
         fecha_aprobacion: estado === 'Aprobado' ? new Date() : null,
       },
+    });
+    return estado === 'Aprobado' && cuenta?.estado !== 'Aprobado';
+  }
+
+  private async sendApprovalEmail(account: {
+    mes: number;
+    anio: number;
+    usuarios?: { nombre_completo?: string | null; email?: string | null } | null;
+  }): Promise<ApprovalEmailResult> {
+    if (!account.usuarios?.email) {
+      this.logger.warn('Approval email not sent: technician has no email address.');
+      return { status: 'failed' };
+    }
+    return this.approvalEmail.sendAccountApproved({
+      email: account.usuarios.email,
+      technician: account.usuarios.nombre_completo ?? 'Técnico',
+      month: account.mes,
+      year: account.anio,
     });
   }
 
@@ -211,7 +311,10 @@ export class AdminService {
   ) {
     const cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: { id: cuentaId },
-      include: { servicios: true },
+      include: {
+        servicios: true,
+        usuarios: { select: { nombre_completo: true, email: true } },
+      },
     });
 
     if (!cuenta) {
@@ -244,11 +347,23 @@ export class AdminService {
         data: {
           estado: status,
           fecha_aprobacion: status === 'Aprobado' ? new Date() : null,
+          ...(status !== 'Aprobado' ? { firma_tecnico: null, fecha_firma: null } : {}),
         },
       });
     });
 
-    return this.getAccountById(cuentaId);
+    const updatedAccount = await this.getAccountById(cuentaId);
+    const emailNotification = status === 'Aprobado' && cuenta.estado !== 'Aprobado'
+      ? await this.sendApprovalEmail({
+          mes: cuenta.mes,
+          anio: cuenta.anio,
+          usuarios: cuenta.usuarios,
+        })
+      : undefined;
+    return {
+      ...updatedAccount,
+      ...(emailNotification ? { email_notification: emailNotification } : {}),
+    };
   }
 
   // ---- Resumen para el panel de control ----

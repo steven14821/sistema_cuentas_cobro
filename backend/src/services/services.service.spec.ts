@@ -3,13 +3,15 @@ import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ServicesService } from './services.service.js';
 
 function makePrisma() {
-  return {
+  const prisma: any = {
     excepciones_carga: { findFirst: vi.fn() },
     tipos_servicio: { findUnique: vi.fn() },
     cuentas_cobro: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
     servicios: {
@@ -22,7 +24,9 @@ function makePrisma() {
       count: vi.fn(),
     },
     usuarios: { findUnique: vi.fn() },
-  } as any;
+  };
+  prisma.$transaction = vi.fn(async (callback: (tx: any) => unknown) => callback(prisma));
+  return prisma;
 }
 
 const TIPO = {
@@ -420,6 +424,72 @@ describe('ServicesService', () => {
       await expect(service.radicarAccount('u1')).rejects.toBeInstanceOf(
         BadRequestException,
       );
+    });
+
+    describe('signAccount', () => {
+      const firmaPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+
+      it('solo guarda la firma del dueño de una cuenta aprobada y radicada', async () => {
+        prisma.cuentas_cobro.findFirst.mockResolvedValue({
+          id: 'cuenta-1',
+          usuario_id: 'u1',
+          radicada: true,
+          estado: 'Aprobado',
+          firma_tecnico: null,
+          servicios: [{ estado: 'Aprobado' }],
+        });
+        prisma.cuentas_cobro.updateMany.mockResolvedValue({ count: 1 });
+
+        const result = await service.signAccount('u1', 'cuenta-1', firmaPng);
+
+        expect(prisma.cuentas_cobro.findFirst).toHaveBeenCalledWith({
+          where: { id: 'cuenta-1', usuario_id: 'u1' },
+          include: { servicios: { select: { estado: true } } },
+        });
+        expect(prisma.cuentas_cobro.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+          where: expect.objectContaining({ estado: 'Aprobado', radicada: true, firma_tecnico: null }),
+          data: expect.objectContaining({ firma_tecnico: firmaPng }),
+        }));
+        expect(result.firma_tecnico).toBe(firmaPng);
+      });
+
+      it('rechaza cuentas que todavía no han sido aprobadas', async () => {
+        prisma.cuentas_cobro.findFirst.mockResolvedValue({
+          id: 'cuenta-1',
+          usuario_id: 'u1',
+          radicada: true,
+          estado: 'Pendiente',
+          firma_tecnico: null,
+          servicios: [{ estado: 'Pendiente' }],
+        });
+
+        await expect(service.signAccount('u1', 'cuenta-1', firmaPng)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.cuentas_cobro.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('no permite firmar si hay servicios de la cuenta sin aprobar', async () => {
+        prisma.cuentas_cobro.findFirst.mockResolvedValue({
+          id: 'cuenta-1',
+          usuario_id: 'u1',
+          radicada: true,
+          estado: 'Aprobado',
+          firma_tecnico: null,
+          servicios: [{ estado: 'Aprobado' }, { estado: 'Observado' }],
+        });
+
+        await expect(service.signAccount('u1', 'cuenta-1', firmaPng)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.cuentas_cobro.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('rechaza contenido que no sea una imagen PNG', async () => {
+        await expect(service.signAccount('u1', 'cuenta-1', 'data:image/png;base64,abc')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+      });
     });
 
     it('falla si la cuenta no tiene servicios', async () => {

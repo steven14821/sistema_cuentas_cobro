@@ -168,8 +168,298 @@ body {
 }
 
 .order-cards,
-.history-cards {
+.history-cards,
+.admin-service-cards {
   gap: 12px;
+}
+
+.admin-service-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #cbd5e1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.035);
+}
+
+.admin-service-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-order-number {
+  display: inline-flex;
+  padding: 5px 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+}
+
+.admin-order-number.is-cucuta {
+  border-color: #fbcfe8;
+  background: #fdf2f8;
+  color: #9d174d;
+}
+
+.admin-service-card-title {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.admin-service-card-transfer {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: #166534;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-service-card-transfer svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.admin-service-card-description {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-service-card-note {
+  margin-top: 9px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-service-card-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f7;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.admin-service-card-total strong {
+  color: var(--blue);
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.admin-service-card-breakdown {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 11px;
+  text-align: right;
+}
+
+.admin-service-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.admin-service-action {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-service-action:focus-visible {
+  outline: 3px solid rgba(0, 87, 184, 0.35);
+  outline-offset: 2px;
+}
+
+.admin-service-action.detail {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.admin-service-action.approve {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-service-action.observe {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.admin-service-action.reject {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.admin-service-action.change-type {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.service-type-backdrop {
+  position: fixed;
+  z-index: 450;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.service-type-modal {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 480px);
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.service-type-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.service-type-heading p {
+  margin: 0 0 4px;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.service-type-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.service-type-heading > button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #fff;
+  color: #64748b;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.service-type-current {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #c4b5fd;
+  border-radius: 0 8px 8px 0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+}
+
+.service-type-label {
+  margin-bottom: -7px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.service-type-modal select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: white;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+}
+
+.service-type-price-note {
+  padding: 10px 12px;
+  border: 1px solid #fde68a;
+  border-radius: 9px;
+  background: #fffbeb;
+  color: #854d0e;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.service-type-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.service-type-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.service-type-actions button {
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: white;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.service-type-actions button[type='submit'] {
+  border-color: #6d28d9;
+  background: #6d28d9;
+  color: white;
+}
+
+.service-type-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .order-card,
@@ -262,6 +552,174 @@ body {
   display: grid;
   justify-items: start;
   gap: 10px;
+}
+
+.signature-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -8px 0 20px;
+  padding: 16px 18px;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #0057b8;
+  border-radius: 12px;
+  background: #f2f7ff;
+  color: #102a43;
+}
+
+.signature-prompt > div {
+  display: grid;
+  gap: 4px;
+}
+
+.signature-prompt span {
+  color: #526579;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.signature-prompt button,
+.signature-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid #0057b8;
+  border-radius: 9px;
+  background: #0057b8;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.signature-action {
+  margin-right: 7px;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.signature-backdrop {
+  position: fixed;
+  z-index: 1250;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 17, 31, 0.62);
+}
+
+.signature-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 560px);
+  padding: 22px;
+  border: 1px solid rgba(8, 17, 31, 0.08);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(8, 17, 31, 0.28);
+}
+
+.signature-modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.signature-modal-heading span {
+  color: #0057b8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.signature-modal-heading h2 {
+  margin: 4px 0 0;
+  color: #08111f;
+  font-size: 21px;
+}
+
+.signature-modal-heading > button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #fff;
+  color: #475569;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.signature-modal p {
+  margin: 0;
+  color: #526579;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.signature-canvas {
+  display: block;
+  width: 100%;
+  height: 190px;
+  border: 1px dashed #94a3b8;
+  border-radius: 12px;
+  background: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.signature-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.signature-modal-actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.signature-modal-actions .signature-save {
+  border-color: #0057b8;
+  background: #0057b8;
+  color: #fff;
+}
+
+.signature-modal-actions button:disabled,
+.signature-modal-heading > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .signature-prompt {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .signature-modal {
+    padding: 18px;
+  }
+
+  .signature-canvas {
+    height: 170px;
+  }
 }
 
 .correction-backdrop {
@@ -401,7 +859,8 @@ body {
   }
 
   .order-cards,
-  .history-cards {
+  .history-cards,
+  .admin-service-cards {
     display: grid;
   }
 

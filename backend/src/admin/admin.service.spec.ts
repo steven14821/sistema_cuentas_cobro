@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AdminService } from './admin.service';
+import { ApprovalEmailService } from './approval-email.service';
 
 function makePrisma() {
   return {
@@ -13,18 +14,26 @@ function makePrisma() {
     },
     auditoria_servicios: {
       count: vi.fn(),
+      create: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    tipos_servicio: {
+      findUnique: vi.fn(),
     },
     excepciones_carga: {
       count: vi.fn(),
       deleteMany: vi.fn(),
     },
     cuentas_cobro: {
+      findUnique: vi.fn(),
       findMany: vi.fn(),
+      update: vi.fn(),
       deleteMany: vi.fn(),
     },
     servicios: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
       deleteMany: vi.fn(),
     },
     $transaction: vi.fn(async (cb) => {
@@ -35,17 +44,86 @@ function makePrisma() {
 
 let prisma: any;
 let service: AdminService;
+let approvalEmail: { sendAccountApproved: ReturnType<typeof vi.fn> };
 
 describe('AdminService — deleteUser', () => {
   beforeEach(() => {
     prisma = makePrisma();
-    service = new AdminService(prisma);
+    approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
+    service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+  });
+
+  describe('AdminService — updateServiceType', () => {
+    beforeEach(() => {
+      prisma = makePrisma();
+      approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
+      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+    });
+
+    it('cambia el tipo, aplica la nueva tarifa estándar y deja auditoría', async () => {
+      prisma.servicios.findUnique.mockResolvedValue({
+        id: 'service-1',
+        cuenta_cobro_id: 'account-1',
+        tipo_servicio_id: 'type-old',
+        numero_orden: 'BUC-12345',
+        descripcion_especifica: 'Instalación',
+        valor_cobrado: 50000,
+        estado: 'Pendiente',
+        cuentas_cobro: { radicada: true },
+        tipos_servicio: { nombre: 'SAMSUNG: Instalación' },
+      });
+      prisma.tipos_servicio.findUnique.mockResolvedValue({
+        id: 'type-new',
+        nombre: 'SAMSUNG: Diagnóstico TV',
+        valor_estandar: 10000,
+        activo: true,
+      });
+      prisma.servicios.update.mockResolvedValue({
+        id: 'service-1',
+        cuenta_cobro_id: 'account-1',
+        tipo_servicio_id: 'type-new',
+        numero_orden: 'BUC-12345',
+        descripcion_especifica: 'Instalación',
+        valor_cobrado: 10000,
+        estado: 'Pendiente',
+        tipos_servicio: { nombre: 'SAMSUNG: Diagnóstico TV' },
+      });
+
+      const result = await service.updateServiceType('service-1', 'type-new', 'admin-1');
+
+      expect(prisma.servicios.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'service-1' },
+        data: expect.objectContaining({ tipo_servicio_id: 'type-new', valor_cobrado: 10000 }),
+      }));
+      expect(prisma.auditoria_servicios.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          usuario_admin_id: 'admin-1',
+          estado_anterior: 'Pendiente',
+          estado_nuevo: 'Pendiente',
+          observacion: expect.stringContaining('Valor actualizado de 50000 a 10000'),
+        }),
+      }));
+      expect(result.tipo_servicio_nombre).toBe('SAMSUNG: Diagnóstico TV');
+      expect(result.valor_cobrado).toBe(10000);
+    });
+
+    it('no permite cambiar el tipo de cuentas aún no radicadas', async () => {
+      prisma.servicios.findUnique.mockResolvedValue({
+        id: 'service-1',
+        cuentas_cobro: { radicada: false },
+      });
+
+      await expect(service.updateServiceType('service-1', 'type-new', 'admin-1'))
+        .rejects.toThrow('cuenta radicada');
+      expect(prisma.servicios.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('AdminService — account access management', () => {
     beforeEach(() => {
       prisma = makePrisma();
-      service = new AdminService(prisma);
+      approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
+      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
     });
 
     it('creates a generated password and returns it only with the new user result', async () => {
@@ -150,5 +228,100 @@ describe('AdminService — deleteUser', () => {
     expect(prisma.servicios.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['servicio-1'] } } });
     expect(prisma.cuentas_cobro.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['cuenta-1'] } } });
     expect(prisma.usuarios.delete).toHaveBeenCalledWith({ where: { id: 'tech-1' } });
+  });
+
+  it('envía un correo con período y técnico al aprobar una cuenta por primera vez', async () => {
+    prisma.cuentas_cobro.findUnique
+      .mockResolvedValueOnce({
+        id: 'account-1',
+        estado: 'Pendiente',
+        radicada: true,
+        mes: 10,
+        anio: 2026,
+        usuarios: { nombre_completo: 'Técnico Uno', email: 'tech@example.com' },
+        servicios: [{ id: 'service-1', estado: 'Pendiente' }],
+      })
+      .mockResolvedValueOnce({
+        id: 'account-1',
+        usuario_id: 'tech-1',
+        tecnico: 'Técnico Uno',
+        tecnico_email: 'tech@example.com',
+        mes: 10,
+        anio: 2026,
+        estado: 'Aprobado',
+        radicada: true,
+        servicios: [],
+      });
+
+    await service.updateAccountStatus('account-1', 'Aprobado', 'admin-1');
+
+    expect(approvalEmail.sendAccountApproved).toHaveBeenCalledWith({
+      email: 'tech@example.com',
+      technician: 'Técnico Uno',
+      month: 10,
+      year: 2026,
+    });
+  });
+
+  it('does not send another approval email when the account was already approved', async () => {
+    prisma.cuentas_cobro.findUnique
+      .mockResolvedValueOnce({
+        id: 'account-1',
+        estado: 'Aprobado',
+        radicada: true,
+        mes: 10,
+        anio: 2026,
+        usuarios: { nombre_completo: 'Técnico Uno', email: 'tech@example.com' },
+        servicios: [{ id: 'service-1', estado: 'Aprobado' }],
+      })
+      .mockResolvedValueOnce({
+        id: 'account-1',
+        usuario_id: 'tech-1',
+        tecnico: 'Técnico Uno',
+        tecnico_email: 'tech@example.com',
+        mes: 10,
+        anio: 2026,
+        estado: 'Aprobado',
+        radicada: true,
+        servicios: [],
+      });
+
+    await service.updateAccountStatus('account-1', 'Aprobado', 'admin-1');
+
+    expect(approvalEmail.sendAccountApproved).not.toHaveBeenCalled();
+  });
+
+  it('sends an approval notice when the last individual service becomes approved', async () => {
+    prisma.servicios.findUnique.mockResolvedValue({
+      id: 'service-1',
+      cuenta_cobro_id: 'account-1',
+      estado: 'Pendiente',
+      cuentas_cobro: {
+        mes: 10,
+        anio: 2026,
+        usuarios: { nombre_completo: 'Técnico Uno', email: 'tech@example.com' },
+      },
+    });
+    prisma.servicios.update.mockResolvedValue({
+      id: 'service-1',
+      cuenta_cobro_id: 'account-1',
+      tipo_servicio_id: 'type-1',
+      numero_orden: 'BUC-12345',
+      descripcion_especifica: null,
+      valor_cobrado: 50000,
+      estado: 'Aprobado',
+    });
+    prisma.cuentas_cobro.findUnique.mockResolvedValue({ estado: 'Pendiente' });
+    prisma.servicios.findMany.mockResolvedValue([{ estado: 'Aprobado' }]);
+
+    const result = await service.updateServiceStatus('service-1', 'Aprobado', 'admin-1');
+
+    expect(approvalEmail.sendAccountApproved).toHaveBeenCalledWith({
+      email: 'tech@example.com',
+      technician: 'Técnico Uno',
+      month: 10,
+      year: 2026,
+    });
+    expect(result.email_notification).toEqual({ status: 'sent' });
   });
 });

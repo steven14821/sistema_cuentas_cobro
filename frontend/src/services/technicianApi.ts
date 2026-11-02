@@ -33,6 +33,8 @@ export interface CuentaApi {
   radicada: boolean;
   fecha_creacion?: string | null;
   fecha_aprobacion?: string | null;
+  firma_tecnico?: string | null;
+  fecha_firma?: string | null;
   total: number;
   total_servicios: number;
   servicios: ServiceApi[];
@@ -96,6 +98,12 @@ export const technicianApi = {
   getMyAccount: () => apiFetch<MyAccountResponse>('/services/my-account'),
 
   getMyAccounts: () => apiFetch<CuentaApi[]>('/services/my-accounts'),
+
+  signAccount: (id: string, firma_tecnico: string) =>
+    apiFetch<{ id: string; firma_tecnico: string; fecha_firma: string }>(`/services/my-accounts/${id}/signature`, {
+      method: 'POST',
+      body: { firma_tecnico },
+    }),
 
   createService: (payload: CreateServicePayload) => apiFetch<ServiceApi>('/services', {
     method: 'POST',

@@ -35,6 +35,7 @@ export type PendingService = {
 
 export type AccountService = {
   id: string;
+  tipo_servicio_id: string;
   tipo_servicio_nombre: string | null;
   numero_orden: string;
   descripcion_especifica: string | null;
@@ -64,6 +65,11 @@ export type Account = {
   radicada: boolean;
   fecha_creacion: string | null;
   fecha_aprobacion: string | null;
+  firma_tecnico?: string | null;
+  fecha_firma?: string | null;
+  email_notification?: {
+    status: 'sent' | 'not_configured' | 'failed';
+  };
   total: number;
   total_servicios: number;
   servicios: AccountService[];
@@ -202,10 +208,18 @@ export const reviewApi = {
     status: EstadoServicio,
     observacion?: string,
   ) =>
-    apiFetch<{ id: string; estado: EstadoServicio }>(
+    apiFetch<AccountService & {
+      email_notification?: { status: 'sent' | 'not_configured' | 'failed' };
+    }>(
       `${BASE}/services/${id}/status`,
       { method: 'PATCH', body: JSON.stringify({ status, observacion }) },
     ),
+
+  updateServiceType: (id: string, tipo_servicio_id: string) =>
+    apiFetch<AccountService>(`${BASE}/services/${id}/type`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tipo_servicio_id }),
+    }),
 
   getAccounts: (params?: { mes?: number; anio?: number; estado?: EstadoServicio; usuario_id?: string }) => {
     const qs = new URLSearchParams();

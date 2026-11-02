@@ -13,6 +13,10 @@ npm install
 Asegúrate de configurar tu archivo `.env` en la carpeta `backend`:
 - `DATABASE_URL`: Conexión a PostgreSQL (Supabase).
 - `JWT_SECRET`: Clave secreta para tokens.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: credenciales SMTP para enviar avisos cuando una cuenta de cobro se aprueba.
+- `FRONTEND_URL`: URL pública del frontend (por ejemplo, `https://cuentas.example.com`) para construir el enlace de acceso del correo.
+
+El correo se envía solo al aprobar una cuenta por primera vez. Si SMTP no está configurado o el proveedor rechaza el envío, la aprobación se conserva y el panel administrativo informa el resultado. Usa una contraseña de aplicación o credenciales SMTP dedicadas; no publiques estos valores ni los guardes en el repositorio.
 
 ### 3. Ejecución
 ```bash

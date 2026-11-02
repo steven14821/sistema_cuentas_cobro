@@ -33,6 +33,13 @@ export function getNumeroOrdenLimpio(numeroOrden: string): string {
   return numeroOrden.replace(/^(T-)?(BUC|CUC)-/i, '').trim();
 }
 
+function puedeFirmarCuenta(cuenta: CuentaApi): boolean {
+  return cuenta.radicada
+    && cuenta.estado === 'Aprobado'
+    && cuenta.servicios.length > 0
+    && cuenta.servicios.every((servicio) => servicio.estado === 'Aprobado');
+}
+
 interface OrdenAgrupada {
   numeroOrden: string; // Ej: "12345"
   servicioPrincipal: ServiceApi;
@@ -78,6 +85,8 @@ export const TechnicianPortal = () => {
   const [correctionOrder, setCorrectionOrder] = useState('');
   const [correctionDescription, setCorrectionDescription] = useState('');
   const [savingCorrection, setSavingCorrection] = useState(false);
+  const [signatureAccount, setSignatureAccount] = useState<CuentaApi | null>(null);
+  const [savingSignature, setSavingSignature] = useState(false);
 
   const isNetworkFailure = (err: unknown) =>
     err instanceof TypeError || !navigator.onLine ||
@@ -309,6 +318,23 @@ export const TechnicianPortal = () => {
   }, [loadAll]);
 
   useEffect(() => {
+    const refreshAccounts = () => {
+      if (!navigator.onLine || document.visibilityState !== 'visible') return;
+      void Promise.all([loadAccount(), loadHistory()]).catch((err) => {
+        if (!isNetworkFailure(err)) {
+          setLoadError(err instanceof Error ? err.message : 'No se pudo actualizar el estado de la cuenta.');
+        }
+      });
+    };
+    const intervalId = window.setInterval(refreshAccounts, 30_000);
+    window.addEventListener('focus', refreshAccounts);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshAccounts);
+    };
+  }, [loadAccount, loadHistory]);
+
+  useEffect(() => {
     const handleOnline = () => {
       setOnline(true);
       void syncPendingOperations();
@@ -405,6 +431,8 @@ export const TechnicianPortal = () => {
       anio: periodo.anio,
       tecnico: user?.name ?? 'Técnico',
       estado: radicada ? (cuenta?.estado ?? 'Pendiente') : 'Borrador',
+      firmaTecnico: cuenta?.firma_tecnico,
+      fechaFirma: cuenta?.fecha_firma,
       servicios: ordenesAgrupadas.map((o) => ({
         orden: o.numeroOrden,
         tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
@@ -445,6 +473,8 @@ export const TechnicianPortal = () => {
       anio: c.anio,
       tecnico: c.tecnico ?? user?.name ?? 'Técnico',
       estado: c.estado,
+      firmaTecnico: c.firma_tecnico,
+      fechaFirma: c.fecha_firma,
       servicios: Object.values(ordenesH).map((o) => ({
         orden: o.orden,
         tipo: o.tipo,
@@ -488,6 +518,21 @@ export const TechnicianPortal = () => {
       setLoadError(err instanceof Error ? err.message : 'No se pudo radicar la cuenta.');
     } finally {
       setRadicando(false);
+    }
+  };
+
+  const handleSaveSignature = async (firma: string) => {
+    if (!signatureAccount) return;
+    setSavingSignature(true);
+    setLoadError('');
+    try {
+      await technicianApi.signAccount(signatureAccount.id, firma);
+      await Promise.all([loadAccount(), loadHistory()]);
+      setSignatureAccount(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'No se pudo guardar la firma.');
+    } finally {
+      setSavingSignature(false);
     }
   };
 
@@ -618,6 +663,24 @@ export const TechnicianPortal = () => {
             </div>
           )}
         </header>
+
+        {cuenta && puedeFirmarCuenta(cuenta) && (
+          <div className="signature-prompt" role="status">
+            <div>
+              <strong>{cuenta.firma_tecnico ? 'Cuenta aceptada y firmada' : 'Cuenta aceptada: falta tu firma'}</strong>
+              <span>
+                {cuenta.firma_tecnico
+                  ? `Firma guardada${cuenta.fecha_firma ? ` el ${new Date(cuenta.fecha_firma).toLocaleDateString('es-CO')}` : ''}. El PDF ya la incluye.`
+                  : 'Firma la cuenta para que tu firma quede guardada y aparezca en el PDF.'}
+              </span>
+            </div>
+            {!cuenta.firma_tecnico && (
+              <button type="button" onClick={() => setSignatureAccount(cuenta)}>
+                Firmar cuenta
+              </button>
+            )}
+          </div>
+        )}
 
         <div className={`connection-status ${online ? 'is-online' : 'is-offline'}`} role="status">
           {online ? <Wifi size={16} /> : <WifiOff size={16} />}
@@ -932,7 +995,12 @@ export const TechnicianPortal = () => {
                   </thead>
                   <tbody>
                     {historialOtros.map((c) => (
-                      <HistoryRow key={c.id} cuenta={c} onDownload={handleDescargarHistorial} />
+                      <HistoryRow
+                        key={c.id}
+                        cuenta={c}
+                        onDownload={handleDescargarHistorial}
+                        onSign={setSignatureAccount}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -946,6 +1014,11 @@ export const TechnicianPortal = () => {
                     </div>
                     <div className="history-card-meta">{c.total_servicios} servicios</div>
                     <EstadoBadge estado={c.estado as EstadoServicio} />
+                    {puedeFirmarCuenta(c) && !c.firma_tecnico && (
+                      <button type="button" onClick={() => setSignatureAccount(c)} className="signature-action">
+                        Firmar cuenta
+                      </button>
+                    )}
                     <button type="button" onClick={() => handleDescargarHistorial(c)} className="order-card-correct">
                       Descargar PDF
                     </button>
@@ -1007,6 +1080,17 @@ export const TechnicianPortal = () => {
             </form>
           </div>
         )}
+
+        {signatureAccount && (
+          <SignatureModal
+            account={signatureAccount}
+            saving={savingSignature}
+            onClose={() => {
+              if (!savingSignature) setSignatureAccount(null);
+            }}
+            onSave={handleSaveSignature}
+          />
+        )}
       </div>
     </MainLayout>
   );
@@ -1015,9 +1099,11 @@ export const TechnicianPortal = () => {
 const HistoryRow = ({
   cuenta,
   onDownload,
+  onSign,
 }: {
   cuenta: CuentaApi;
   onDownload: (c: CuentaApi) => void;
+  onSign: (c: CuentaApi) => void;
 }) => {
   return (
     <tr style={{ borderBottom: '1px solid #f9f9f9' }}>
@@ -1030,6 +1116,11 @@ const HistoryRow = ({
         <EstadoBadge estado={cuenta.estado as EstadoServicio} />
       </td>
       <td style={{ padding: '16px 0', fontSize: '14px', textAlign: 'right' }}>
+        {puedeFirmarCuenta(cuenta) && !cuenta.firma_tecnico && (
+          <button type="button" onClick={() => onSign(cuenta)} className="signature-action">
+            Firmar
+          </button>
+        )}
         <button
           onClick={() => onDownload(cuenta)}
           style={{
@@ -1046,5 +1137,124 @@ const HistoryRow = ({
         </button>
       </td>
     </tr>
+  );
+};
+
+const SignatureModal = ({
+  account,
+  saving,
+  onClose,
+  onSave,
+}: {
+  account: CuentaApi;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (signature: string) => Promise<void>;
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hasInk = useRef(false);
+  const [hasSignature, setHasSignature] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const bounds = canvas.getBoundingClientRect();
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(bounds.width * scale);
+    canvas.height = Math.round(bounds.height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.scale(scale, scale);
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, bounds.width, bounds.height);
+    context.strokeStyle = '#08111f';
+    context.lineWidth = 2.4;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+  }, []);
+
+  const startStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    canvas.setPointerCapture(event.pointerId);
+    context.beginPath();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    context.moveTo(x, y);
+    context.lineTo(x + 0.1, y + 0.1);
+    context.stroke();
+    hasInk.current = true;
+    setHasSignature(true);
+  };
+
+  const continueStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const context = event.currentTarget.getContext('2d');
+    if (!context) return;
+    context.lineTo(event.clientX - rect.left, event.clientY - rect.top);
+    context.stroke();
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+    const rect = canvas.getBoundingClientRect();
+    context.clearRect(0, 0, rect.width, rect.height);
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, rect.width, rect.height);
+    hasInk.current = false;
+    setHasSignature(false);
+  };
+
+  return (
+    <div className="signature-backdrop">
+      <section className="signature-modal" role="dialog" aria-modal="true" aria-labelledby="signature-title">
+        <div className="signature-modal-heading">
+          <div>
+            <span>Cuenta aceptada</span>
+            <h2 id="signature-title">Firma de {nombreMes(account.mes)} {account.anio}</h2>
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Cerrar firma">×</button>
+        </div>
+        <p>Traza tu firma en el recuadro. Se guardará en esta cuenta y aparecerá en el PDF.</p>
+        <canvas
+          ref={canvasRef}
+          className="signature-canvas"
+          aria-label="Espacio para dibujar la firma del técnico"
+          onPointerDown={startStroke}
+          onPointerMove={continueStroke}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+          }}
+          onPointerCancel={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+          }}
+        />
+        <div className="signature-modal-actions">
+          <button type="button" onClick={clearSignature} disabled={!hasSignature || saving}>Limpiar</button>
+          <button
+            type="button"
+            className="signature-save"
+            disabled={!hasInk.current || saving}
+            onClick={() => {
+              const signature = canvasRef.current?.toDataURL('image/png');
+              if (signature) void onSave(signature);
+            }}
+          >
+            {saving ? 'Guardando…' : 'Guardar firma'}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 };

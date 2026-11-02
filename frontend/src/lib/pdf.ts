@@ -29,6 +29,8 @@ export interface CuentaPdf {
   // ya que no se tiene el detalle itemizado de servicios cerrados.
   total?: number;
   serviciosCount?: number;
+  firmaTecnico?: string | null;
+  fechaFirma?: string | null;
 }
 
 // Formato COP alineado con la UI: 50000 -> "$ 50.000".
@@ -154,14 +156,25 @@ export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
   doc.text(cop(total), pageW - margin, afterY, { align: 'right' });
 
   // ---- Firma ----
-  const sigY = afterY + 40;
+  let sigY = afterY + 40;
+  if (sigY + 10 > doc.internal.pageSize.getHeight() - 20) {
+    doc.addPage();
+    sigY = 40;
+  }
   doc.setDrawColor(...GREY);
   doc.setLineWidth(0.3);
   doc.line(margin + 10, sigY, margin + 70, sigY);
+  if (cuenta.firmaTecnico) {
+    doc.addImage(cuenta.firmaTecnico, 'PNG', margin + 12, sigY - 19, 56, 17);
+  }
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...GREY);
   doc.text('Firma del Técnico', margin + 40, sigY + 5, { align: 'center' });
+  if (cuenta.fechaFirma) {
+    doc.setFontSize(8);
+    doc.text(`Firmada el ${new Date(cuenta.fechaFirma).toLocaleDateString('es-CO')}`, margin + 40, sigY + 10, { align: 'center' });
+  }
 
   // ---- Pie de página ----
   const pageH = doc.internal.pageSize.getHeight();

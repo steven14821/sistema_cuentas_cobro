@@ -15,6 +15,7 @@ import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { SignAccountDto } from './dto/sign-account.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -42,6 +43,17 @@ export class ServicesController {
   @Roles('Tecnico')
   async getMyAccounts(@Request() req: any) {
     return this.servicesService.getMyAccounts(req.user!.id);
+  }
+
+  @Post('my-accounts/:id/signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Tecnico')
+  async signAccount(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: SignAccountDto,
+  ) {
+    return this.servicesService.signAccount(req.user!.id, id, dto.firma_tecnico);
   }
 
   @Post()

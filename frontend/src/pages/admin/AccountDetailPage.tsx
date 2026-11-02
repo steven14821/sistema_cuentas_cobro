@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '../../layouts/MainLayout';
 import { reviewApi, type Account, type AccountService } from '../../services/adminApi';
-import type { EstadoServicio } from '../../services/technicianApi';
+import { technicianApi, type EstadoServicio, type TipoServicioApi } from '../../services/technicianApi';
 import { EstadoBadge } from '../../components/EstadoBadge';
 import { formatCOP, nombreMes } from '../../lib/period';
 import {
@@ -19,6 +19,7 @@ import {
   Eye,
   Download,
   X,
+  Pencil,
 } from 'lucide-react';
 
 interface OrdenAgrupadaAdmin {
@@ -53,6 +54,13 @@ export const AccountDetailPage = () => {
   const [observacion, setObservacion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [serviceTypeTarget, setServiceTypeTarget] = useState<AccountService | null>(null);
+  const [serviceTypes, setServiceTypes] = useState<TipoServicioApi[]>([]);
+  const [selectedTypeId, setSelectedTypeId] = useState('');
+  const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
+  const [savingServiceType, setSavingServiceType] = useState(false);
+  const [serviceTypeError, setServiceTypeError] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     if (!id) return;
@@ -83,6 +91,7 @@ export const AccountDetailPage = () => {
     setTarget({ kind, id: targetId, action, title, subtitle, secondaryId });
     setObservacion('');
     setActionError(null);
+    setActionNotice(null);
   };
 
   const handleSubmitAction = async (e: React.FormEvent) => {
@@ -92,16 +101,26 @@ export const AccountDetailPage = () => {
     setSubmitting(true);
     setActionError(null);
     try {
+      let notificationStatus: 'sent' | 'not_configured' | 'failed' | undefined;
       if (target.kind === 'service') {
         const promises = [reviewApi.updateServiceStatus(target.id, target.action, observacion.trim())];
         if (target.secondaryId && target.secondaryId !== target.id) {
           promises.push(reviewApi.updateServiceStatus(target.secondaryId, target.action, observacion.trim()));
         }
-        await Promise.all(promises);
+        const results = await Promise.all(promises);
+        notificationStatus = results.find((result) => result.email_notification)?.email_notification?.status;
       } else {
-        await reviewApi.updateAccountStatus(target.id, target.action, observacion.trim());
+        const result = await reviewApi.updateAccountStatus(target.id, target.action, observacion.trim());
+        notificationStatus = result.email_notification?.status;
       }
       setTarget(null);
+      if (target.action === 'Aprobado' && notificationStatus) {
+        setActionNotice(notificationStatus === 'sent'
+          ? 'Cuenta aprobada y correo de aviso enviado al técnico.'
+          : notificationStatus === 'not_configured'
+            ? 'Cuenta aprobada. No se pudo enviar el correo: configura SMTP en el servidor.'
+            : 'Cuenta aprobada, pero ocurrió un error al enviar el correo. Revisa los registros del servidor.');
+      }
       await loadAccount();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error al actualizar el estado.');
@@ -109,6 +128,41 @@ export const AccountDetailPage = () => {
       setSubmitting(false);
     }
   };
+
+  const handleOpenServiceType = async (service: AccountService) => {
+    setServiceTypeTarget(service);
+    setSelectedTypeId(service.tipo_servicio_id);
+    setServiceTypeError(null);
+    if (serviceTypes.length > 0) return;
+    setLoadingServiceTypes(true);
+    try {
+      setServiceTypes(await technicianApi.getTypes());
+    } catch (err) {
+      setServiceTypeError(err instanceof Error ? err.message : 'No se pudieron cargar los tipos de servicio.');
+    } finally {
+      setLoadingServiceTypes(false);
+    }
+  };
+
+  const handleSaveServiceType = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!serviceTypeTarget || !selectedTypeId) return;
+    setSavingServiceType(true);
+    setServiceTypeError(null);
+    try {
+      await reviewApi.updateServiceType(serviceTypeTarget.id, selectedTypeId);
+      setServiceTypeTarget(null);
+      await loadAccount();
+    } catch (err) {
+      setServiceTypeError(err instanceof Error ? err.message : 'No se pudo cambiar el tipo de servicio.');
+    } finally {
+      setSavingServiceType(false);
+    }
+  };
+
+  const availableServiceTypes = serviceTypes.filter(
+    (type) => !type.nombre.toUpperCase().startsWith('TRASLADO'),
+  );
 
   const servicios = account?.servicios ?? [];
 
@@ -160,6 +214,8 @@ export const AccountDetailPage = () => {
       anio: account.anio,
       tecnico: account.tecnico ?? 'Técnico',
       estado: account.estado ?? 'Pendiente',
+      firmaTecnico: account.firma_tecnico,
+      fechaFirma: account.fecha_firma,
       servicios: ordenesAgrupadas.map((o) => ({
         orden: o.numeroOrden,
         tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
@@ -205,6 +261,25 @@ export const AccountDetailPage = () => {
   return (
     <MainLayout>
       <div style={{ maxWidth: '1150px', margin: '0 auto', paddingBottom: '60px' }}>
+        {actionNotice && (
+          <div
+            role="status"
+            style={{
+              marginBottom: '16px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: actionNotice.includes('No se pudo') || actionNotice.includes('error')
+                ? '#fff7ed'
+                : '#ecfdf5',
+              color: actionNotice.includes('No se pudo') || actionNotice.includes('error')
+                ? '#9a3412'
+                : '#166534',
+              fontSize: '14px',
+            }}
+          >
+            {actionNotice}
+          </div>
+        )}
         {/* Barra superior de navegación */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
           <button
@@ -408,7 +483,8 @@ export const AccountDetailPage = () => {
           {ordenesAgrupadas.length === 0 ? (
             <div style={emptyBoxStyle}>No hay servicios registrados en esta cuenta.</div>
           ) : (
-            <div className="table-scroll table-wide">
+            <>
+            <div className="table-scroll table-wide desktop-only">
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ borderBottom: '2px solid #edf2f7' }}>
                   <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
@@ -524,6 +600,21 @@ export const AccountDetailPage = () => {
 
                             <button
                               type="button"
+                              title="Cambiar tipo de servicio"
+                              onClick={() => void handleOpenServiceType(s)}
+                              style={{
+                                ...actionMiniBtn,
+                                backgroundColor: '#f5f3ff',
+                                color: '#6d28d9',
+                                borderColor: '#ddd6fe',
+                                fontWeight: 600,
+                              }}
+                            >
+                              <Pencil size={13} /> Cambiar tipo
+                            </button>
+
+                            <button
+                              type="button"
                               title="Aprobar orden"
                               onClick={() =>
                                 handleOpenAction(
@@ -601,6 +692,118 @@ export const AccountDetailPage = () => {
                 </tbody>
               </table>
             </div>
+            <div className="mobile-only admin-service-cards">
+              {ordenesAgrupadas.map((grupo) => {
+                const s = grupo.servicioPrincipal;
+                const hasTraslado = !!grupo.traslado;
+                const statusColor = grupo.estado === 'Aprobado'
+                  ? '#15803d'
+                  : grupo.estado === 'Observado'
+                    ? '#b45309'
+                    : grupo.estado === 'Rechazado'
+                      ? '#b91c1c'
+                      : '#1d4ed8';
+
+                return (
+                  <article key={grupo.numeroOrden} className="admin-service-card" style={{ borderLeftColor: statusColor }}>
+                    <div className="admin-service-card-top">
+                      <span className={`admin-order-number ${grupo.numeroOrden.includes('CUC') ? 'is-cucuta' : ''}`}>
+                        {grupo.numeroOrden}
+                      </span>
+                      <EstadoBadge estado={grupo.estado} />
+                    </div>
+
+                    <h3 className="admin-service-card-title">{s.tipo_servicio_nombre ?? 'Servicio técnico'}</h3>
+                    {hasTraslado && (
+                      <div className="admin-service-card-transfer">
+                        <Truck size={14} />
+                        <span>{grupo.traslado?.descripcion_especifica || 'Traslado incluido'}</span>
+                      </div>
+                    )}
+
+                    <p className="admin-service-card-description">{s.descripcion_especifica || 'Sin descripción del servicio.'}</p>
+                    {s.auditoria?.[0]?.observacion && (
+                      <div className="admin-service-card-note">
+                        <strong>Última nota:</strong> {s.auditoria[0].observacion}
+                      </div>
+                    )}
+
+                    <div className="admin-service-card-total">
+                      <span>{hasTraslado ? 'Total con traslado' : 'Valor del servicio'}</span>
+                      <strong>{formatCOP(grupo.totalValor)}</strong>
+                    </div>
+                    {hasTraslado && (
+                      <div className="admin-service-card-breakdown">
+                        Servicio {formatCOP(s.valor_cobrado)} <span aria-hidden="true">·</span> Traslado {formatCOP(grupo.traslado!.valor_cobrado)}
+                      </div>
+                    )}
+
+                    <div className="admin-service-card-actions">
+                      <button
+                        type="button"
+                        className="admin-service-action detail"
+                        onClick={() => setSelectedOrder(grupo)}
+                      >
+                        <Eye size={15} /> Ver detalle
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-service-action change-type"
+                        onClick={() => void handleOpenServiceType(s)}
+                      >
+                        <Pencil size={15} /> Cambiar tipo
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-service-action approve"
+                        style={grupo.estado === 'Aprobado' ? { color: statusColor, backgroundColor: '#e6f4ea', borderColor: '#bbf7d0' } : undefined}
+                        onClick={() => handleOpenAction(
+                          'service',
+                          s.id,
+                          'Aprobado',
+                          `Aprobar ${grupo.numeroOrden}`,
+                          `${s.tipo_servicio_nombre}${hasTraslado ? ' + Traslado' : ''} · ${formatCOP(grupo.totalValor)}`,
+                          grupo.traslado?.id,
+                        )}
+                      >
+                        <CheckCircle2 size={15} /> Aprobar
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-service-action observe"
+                        style={grupo.estado === 'Observado' ? { color: statusColor, backgroundColor: '#fef3c7', borderColor: '#fde68a' } : undefined}
+                        onClick={() => handleOpenAction(
+                          'service',
+                          s.id,
+                          'Observado',
+                          `Observar ${grupo.numeroOrden}`,
+                          'Ingresa el motivo u observación para el técnico.',
+                          grupo.traslado?.id,
+                        )}
+                      >
+                        <AlertTriangle size={15} /> Observar
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-service-action reject"
+                        style={grupo.estado === 'Rechazado' ? { color: statusColor, backgroundColor: '#fee2e2', borderColor: '#fecaca' } : undefined}
+                        onClick={() => handleOpenAction(
+                          'service',
+                          s.id,
+                          'Rechazado',
+                          `Rechazar ${grupo.numeroOrden}`,
+                          'Ingresa el motivo del rechazo.',
+                          grupo.traslado?.id,
+                        )}
+                      >
+                        <XCircle size={15} /> Rechazar
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            </>
           )}
         </div>
 
@@ -818,6 +1021,53 @@ export const AccountDetailPage = () => {
           >
             <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Cerrar foto" style={{ position: 'absolute', top: 18, right: 18, width: 42, height: 42, borderRadius: '50%', border: '1px solid rgba(255,255,255,.45)', background: 'rgba(255,255,255,.12)', color: 'white', fontSize: 25, cursor: 'pointer' }}>×</button>
             <img src={selectedPhoto} alt="Foto ampliada de la orden" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 'min(100%, 1200px)', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, cursor: 'default' }} />
+          </div>
+        )}
+
+        {serviceTypeTarget && (
+          <div className="service-type-backdrop">
+            <form className="service-type-modal" onSubmit={handleSaveServiceType}>
+              <div className="service-type-heading">
+                <div>
+                  <p>ORDEN {serviceTypeTarget.numero_orden}</p>
+                  <h2>Cambiar tipo de servicio</h2>
+                </div>
+                <button type="button" onClick={() => setServiceTypeTarget(null)} aria-label="Cerrar">×</button>
+              </div>
+              <p className="service-type-current">{serviceTypeTarget.tipo_servicio_nombre ?? 'Tipo actual no disponible'}</p>
+              <label className="service-type-label" htmlFor="admin-service-type-select">Nuevo tipo</label>
+              <select
+                id="admin-service-type-select"
+                value={selectedTypeId}
+                onChange={(event) => setSelectedTypeId(event.target.value)}
+                disabled={loadingServiceTypes || savingServiceType}
+                required
+              >
+                <option value="" disabled>{loadingServiceTypes ? 'Cargando tipos…' : 'Selecciona un tipo de servicio'}</option>
+                {availableServiceTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.nombre} — {formatCOP(Number(type.valor_estandar))}
+                  </option>
+                ))}
+              </select>
+              {selectedTypeId !== serviceTypeTarget.tipo_servicio_id && (
+                <div className="service-type-price-note">
+                  El valor cobrado cambiará de <strong>{formatCOP(serviceTypeTarget.valor_cobrado)}</strong> a{' '}
+                  <strong>{formatCOP(Number(availableServiceTypes.find((type) => type.id === selectedTypeId)?.valor_estandar ?? 0))}</strong>,
+                  según la tarifa estándar del nuevo tipo.
+                </div>
+              )}
+              {serviceTypeError && <p className="service-type-error" role="alert">{serviceTypeError}</p>}
+              <div className="service-type-actions">
+                <button type="button" onClick={() => setServiceTypeTarget(null)} disabled={savingServiceType}>Cancelar</button>
+                <button
+                  type="submit"
+                  disabled={loadingServiceTypes || savingServiceType || !selectedTypeId || selectedTypeId === serviceTypeTarget.tipo_servicio_id}
+                >
+                  {savingServiceType ? 'Guardando…' : 'Cambiar tipo y tarifa'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -83,6 +84,8 @@ export class ServicesService {
       radicada: cuenta.radicada,
       fecha_creacion: cuenta.fecha_creacion,
       fecha_aprobacion: cuenta.fecha_aprobacion,
+      firma_tecnico: cuenta.firma_tecnico ?? null,
+      fecha_firma: cuenta.fecha_firma ?? null,
       total,
       total_servicios: serviciosPrincipales.length,
       servicios,
@@ -570,6 +573,53 @@ export class ServicesService {
       estado: updated.estado,
       radicada: updated.radicada,
     };
+  }
+
+  async signAccount(usuarioId: string, cuentaId: string, firma: string) {
+    const encodedImage = firma.slice('data:image/png;base64,'.length);
+    const imageBytes = Buffer.from(encodedImage, 'base64');
+    const isPng = imageBytes.subarray(0, 8).equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    if (!isPng || imageBytes.length === 0) {
+      throw new BadRequestException('La firma debe ser una imagen PNG válida.');
+    }
+
+    return this.prisma.$transaction(async (tx: any) => {
+      const cuenta = await tx.cuentas_cobro.findFirst({
+        where: { id: cuentaId, usuario_id: usuarioId },
+        include: { servicios: { select: { estado: true } } },
+      });
+      if (!cuenta) {
+        throw new NotFoundException('Cuenta de cobro no encontrada.');
+      }
+      if (!cuenta.radicada || cuenta.estado !== 'Aprobado') {
+        throw new BadRequestException('Solo puedes firmar una cuenta radicada y aprobada.');
+      }
+      if (!cuenta.servicios.length || cuenta.servicios.some((servicio: { estado: string }) => servicio.estado !== 'Aprobado')) {
+        throw new BadRequestException('Todos los servicios de la cuenta deben estar aprobados antes de firmarla.');
+      }
+      if (cuenta.firma_tecnico) {
+        throw new ConflictException('Esta cuenta ya fue firmada.');
+      }
+
+      const fechaFirma = new Date();
+      const result = await tx.cuentas_cobro.updateMany({
+        where: {
+          id: cuentaId,
+          usuario_id: usuarioId,
+          radicada: true,
+          estado: 'Aprobado',
+          firma_tecnico: null,
+        },
+        data: { firma_tecnico: firma, fecha_firma: fechaFirma },
+      });
+      if (result.count !== 1) {
+        throw new ConflictException('La cuenta cambió mientras se guardaba la firma. Actualiza e inténtalo de nuevo.');
+      }
+
+      return { id: cuentaId, firma_tecnico: firma, fecha_firma: fechaFirma };
+    });
   }
 
   async getAllTypes() {
