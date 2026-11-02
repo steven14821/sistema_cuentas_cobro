@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,7 @@ const TABS: { id: Tab; label: string }[] = [
 export const AdminReviewPage = () => {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>('cuentas');
 
   // ---- Usuarios ----
@@ -57,7 +58,7 @@ export const AdminReviewPage = () => {
   const [exceptionError, setExceptionError] = useState<string | null>(null);
 
   // ---- Filtros cuentas ----
-  const [filtroEstado, setFiltroEstado] = useState<string>('');
+  const [filtroEstado, setFiltroEstado] = useState<string>(searchParams.get('estado') === 'revision' ? 'revision' : '');
   const [filtroAnio, setFiltroAnio] = useState<string>('');
 
   // ---- Cargas ----
@@ -124,16 +125,26 @@ export const AdminReviewPage = () => {
       nombre_completo: string;
       email: string;
       password: string;
+      generatePassword: boolean;
       rol: 'Tecnico' | 'Admin';
       sede?: string;
     }) => {
       setModalSaving(true);
       setModalError(null);
       try {
-        await createUser(payload);
-        setModalMode(null);
+        const result = await createUser({
+          username: payload.username,
+          nombre_completo: payload.nombre_completo,
+          email: payload.email,
+          password: payload.password,
+          generate_password: payload.generatePassword,
+          rol: payload.rol,
+          sede: payload.sede,
+        });
+        return { generatedPassword: result.generatedPassword, created: true };
       } catch (err) {
         setModalError(err instanceof Error ? err.message : 'No se pudo crear el usuario.');
+        throw err;
       } finally {
         setModalSaving(false);
       }
@@ -149,9 +160,18 @@ export const AdminReviewPage = () => {
 
   // ---- Cuentas filtradas ----
   const cuentasFiltradas = accounts.filter((a) => {
-    if (filtroEstado && a.estado !== filtroEstado) return false;
+    if (filtroEstado === 'revision' && !['Pendiente', 'Observado', 'Rechazado'].includes(a.estado)) return false;
+    if (filtroEstado && filtroEstado !== 'revision' && a.estado !== filtroEstado) return false;
     if (filtroAnio && String(a.anio) !== filtroAnio) return false;
     return true;
+  }).sort((a, b) => {
+    const priority = (estado: string) =>
+      estado === 'Rechazado' ? 0
+        : estado === 'Observado' ? 1
+          : estado === 'Pendiente' ? 2 : 3;
+    const byPriority = priority(a.estado) - priority(b.estado);
+    if (byPriority !== 0) return byPriority;
+    return new Date(a.fecha_creacion ?? 0).getTime() - new Date(b.fecha_creacion ?? 0).getTime();
   });
 
   const aniosDisponibles = [...new Set(accounts.map((a) => a.anio))].sort((x, y) => y - x);
@@ -279,6 +299,7 @@ export const AdminReviewPage = () => {
                 style={filterSelectStyle}
               >
                 <option value="">Todos los estados</option>
+                <option value="revision">Requieren revisión</option>
                 <option value="Pendiente">Pendiente</option>
                 <option value="Aprobado">Aprobado</option>
                 <option value="Observado">Observado</option>
@@ -372,7 +393,19 @@ export const AdminReviewPage = () => {
                                 </span>
                               ) : '—'}
                           </td>
-                          <td style={td}>{nombreMes(a.mes)} {a.anio}</td>
+                          <td style={td}>
+                            <div>{nombreMes(a.mes)} {a.anio}</div>
+                            {a.estado !== 'Aprobado' && a.fecha_creacion && (
+                              <div style={{
+                                marginTop: 4,
+                                color: Date.now() - new Date(a.fecha_creacion).getTime() >= 3 * 86_400_000 ? '#b91c1c' : '#64748b',
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}>
+                                {Math.max(0, Math.floor((Date.now() - new Date(a.fecha_creacion).getTime()) / 86_400_000))} días en revisión
+                              </div>
+                            )}
+                          </td>
                           <td style={td}>{a.total_servicios} servicio{a.total_servicios !== 1 ? 's' : ''}</td>
                           <td style={td}>
                             <EstadoBadge estado={a.estado} />
@@ -404,7 +437,7 @@ export const AdminReviewPage = () => {
             loading={usersLoading}
             currentUserId={currentUser?.id}
             onUpdateRole={(id, rol) => updateRole(id, rol).then(() => undefined)}
-            onToggleActive={(id) => toggleActive(id).then(() => undefined)}
+            onToggleActive={(id, reason) => toggleActive(id, reason).then(() => undefined)}
             onDeleteUser={(id) => deleteUser(id)}
             onCreateExceptionForUser={(id) => {
               const u = users.find((x) => x.id === id);
@@ -412,6 +445,7 @@ export const AdminReviewPage = () => {
               setExceptionUser({ id, name: u?.nombre_completo ?? '' });
               setExceptionModalOpen(true);
             }}
+            onSelectUser={(id) => navigate(`/admin/users/${id}`)}
           />
         )}
 

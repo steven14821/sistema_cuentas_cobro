@@ -51,6 +51,26 @@ export class ServicesController {
     return this.servicesService.createService(req.user!.id, dto);
   }
 
+  @Post('transfer/quote')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Tecnico')
+  async quoteTransfer(
+    @Request() req: any,
+    @Body() dto: CreateTransferDto,
+  ) {
+    const account = await this.servicesService.getMyAccount(req.user!.id);
+    if (!account.cuenta) {
+      throw new BadRequestException(
+        'No hay una cuenta de cobro abierta para este período.',
+      );
+    }
+    const pendingServices = account.cuenta.servicios.filter(
+      (service: { estado?: string | null }) =>
+        !['Aprobado', 'Observado', 'Rechazado'].includes(service.estado ?? ''),
+    );
+    return this.servicesService.quoteTransfer(req.user!.id, dto, pendingServices);
+  }
+
   @Post('transfer')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Tecnico')

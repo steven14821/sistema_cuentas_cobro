@@ -39,6 +39,7 @@ export const AccountDetailPage = () => {
 
   // Modal para detalle completo de la orden (Ojo)
   const [selectedOrder, setSelectedOrder] = useState<OrdenAgrupadaAdmin | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   // Modal para aprobar/observar/rechazar (servicio o cuenta)
   const [target, setTarget] = useState<{
@@ -740,6 +741,45 @@ export const AccountDetailPage = () => {
                 </div>
               )}
 
+              {(selectedOrder.servicioPrincipal.fotos?.length ?? 0) > 0 && (
+                <section style={{ marginBottom: 18 }}>
+                  <h4 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--ink)' }}>Fotos de la orden ({selectedOrder.servicioPrincipal.fotos!.length})</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+                    {selectedOrder.servicioPrincipal.fotos!.map((photo, index) => (
+                      <button key={`${index}-${photo.slice(-10)}`} type="button" onClick={() => setSelectedPhoto(photo)} aria-label={`Ampliar foto ${index + 1}`} style={{ padding: 0, border: '2px solid #cbd5e1', borderRadius: 9, background: 'white', cursor: 'zoom-in', overflow: 'hidden' }}>
+                        <img src={photo} alt={`Foto ${index + 1} de la orden ${selectedOrder.numeroOrden}`} style={{ display: 'block', width: 76, height: 76, objectFit: 'cover' }} />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {[
+                ...selectedOrder.servicioPrincipal.auditoria ?? [],
+                ...selectedOrder.traslado?.auditoria ?? [],
+              ].length > 0 && (
+                <section style={{ marginBottom: 18, padding: 14, borderRadius: 12, background: '#f8fafc', border: '1px solid #dbe3ec' }}>
+                  <h4 style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--ink)' }}>Historial de revisión</h4>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {[
+                      ...selectedOrder.servicioPrincipal.auditoria ?? [],
+                      ...selectedOrder.traslado?.auditoria ?? [],
+                    ].sort((a, b) => new Date(b.fecha_accion ?? 0).getTime() - new Date(a.fecha_accion ?? 0).getTime()).map((entry) => (
+                      <div key={entry.id} style={{ padding: '10px 11px', borderLeft: '3px solid #0057b8', borderRadius: '0 8px 8px 0', background: 'white' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 5 }}>
+                          <strong style={{ fontSize: 13, color: '#0f172a' }}>{entry.admin || 'Administrador'}</strong>
+                          <time style={{ fontSize: 12, color: '#475569', fontWeight: 600 }} dateTime={entry.fecha_accion ?? undefined}>{entry.fecha_accion ? new Date(entry.fecha_accion).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</time>
+                        </div>
+                        <div style={{ fontSize: 13, color: '#334155' }}>
+                          {entry.estado_anterior || 'Sin estado'} <strong aria-hidden="true">→</strong> <strong>{entry.estado_nuevo}</strong>
+                        </div>
+                        {entry.observacion && <p style={{ margin: '5px 0 0', fontSize: 13, color: '#334155', lineHeight: 1.45 }}><strong>Cambio / nota:</strong> {entry.observacion}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* Total Orden */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: '#f1f5f9', borderRadius: '12px', marginBottom: '20px' }}>
                 <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>Total Cobrado por esta Orden:</span>
@@ -765,6 +805,19 @@ export const AccountDetailPage = () => {
                 Cerrar Detalle
               </button>
             </div>
+          </div>
+        )}
+
+        {selectedPhoto && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Vista ampliada de foto"
+            onClick={() => setSelectedPhoto(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(5, 10, 20, .88)', cursor: 'zoom-out' }}
+          >
+            <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Cerrar foto" style={{ position: 'absolute', top: 18, right: 18, width: 42, height: 42, borderRadius: '50%', border: '1px solid rgba(255,255,255,.45)', background: 'rgba(255,255,255,.12)', color: 'white', fontSize: 25, cursor: 'pointer' }}>×</button>
+            <img src={selectedPhoto} alt="Foto ampliada de la orden" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 'min(100%, 1200px)', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, cursor: 'default' }} />
           </div>
         )}
 

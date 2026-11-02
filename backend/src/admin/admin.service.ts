@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 
@@ -21,7 +22,7 @@ export class AdminService {
 
   // ---- Serialización ----
 
-  private serializeServicio(servicio: any) {
+  private serializeServicio(servicio: any, includePhotos = false) {
     return {
       id: servicio.id,
       cuenta_cobro_id: servicio.cuenta_cobro_id,
@@ -29,6 +30,7 @@ export class AdminService {
       tipo_servicio_nombre: servicio.tipos_servicio?.nombre ?? null,
       numero_orden: servicio.numero_orden,
       descripcion_especifica: servicio.descripcion_especifica,
+      ...(includePhotos ? { fotos: servicio.fotos ?? [] } : {}),
       valor_cobrado: Number(servicio.valor_cobrado),
       estado: servicio.estado,
       created_at: servicio.created_at,
@@ -43,9 +45,9 @@ export class AdminService {
     };
   }
 
-  private serializeCuenta(cuenta: any) {
+  private serializeCuenta(cuenta: any, includePhotos = false) {
     const servicios = (cuenta.servicios ?? []).map((s: any) =>
-      this.serializeServicio(s),
+      this.serializeServicio(s, includePhotos),
     );
     const total = servicios.reduce(
       (acc: number, s: { valor_cobrado: number }) => acc + s.valor_cobrado,
@@ -197,7 +199,7 @@ export class AdminService {
       },
     });
     if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
-    return this.serializeCuenta(cuenta);
+    return this.serializeCuenta(cuenta, true);
   }
 
   // Aprobar/observar/rechazar la cuenta completa: cascadea a sus servicios.
@@ -373,6 +375,7 @@ export class AdminService {
         rol: true,
         sede: true,
         activo: true,
+        motivo_inactivacion: true,
         created_at: true,
       },
     });
@@ -383,6 +386,7 @@ export class AdminService {
     nombre_completo: string;
     email: string;
     password: string;
+    generate_password?: boolean;
     rol: 'Tecnico' | 'Admin';
     sede?: string;
   }) {
@@ -400,12 +404,19 @@ export class AdminService {
       throw new ConflictException('Ya existe un usuario con ese correo electrónico.');
     }
 
-    const passwordHash = await bcrypt.hash(payload.password, 10);
+    const generatedPassword = payload.generate_password
+      ? randomBytes(12).toString('base64url')
+      : undefined;
+    const password = generatedPassword ?? payload.password;
+    if (!password || password.length < 4) {
+      throw new BadRequestException('La contraseña debe tener al menos 4 caracteres.');
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const sedeNormalizada =
       payload.sede?.trim() || (payload.rol === 'Tecnico' ? 'Bucaramanga' : null);
 
-    return this.prisma.usuarios.create({
+    const user = await this.prisma.usuarios.create({
       data: {
         username: payload.username,
         password_hash: passwordHash,
@@ -425,9 +436,110 @@ export class AdminService {
         created_at: true,
       },
     });
+    return { user, ...(generatedPassword ? { generatedPassword } : {}) };
   }
 
-  async updateUserRole(userId: string, rol: 'Tecnico' | 'Admin') {
+  async getUserById(userId: string) {
+    const user = await this.prisma.usuarios.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        nombre_completo: true,
+        email: true,
+        rol: true,
+        sede: true,
+        activo: true,
+        motivo_inactivacion: true,
+        created_at: true,
+      },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+    return user;
+  }
+
+  async updateUser(
+    userId: string,
+    payload: { username?: string; nombre_completo?: string; email?: string; sede?: string | null },
+  ) {
+    const user = await this.prisma.usuarios.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+    const username = payload.username?.trim();
+    const nombreCompleto = payload.nombre_completo?.trim();
+    const email = payload.email?.trim();
+    if (username !== undefined && !username) throw new BadRequestException('El nombre de usuario es obligatorio.');
+    if (nombreCompleto !== undefined && !nombreCompleto) throw new BadRequestException('El nombre completo es obligatorio.');
+    if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException('Ingresa un correo electrónico válido.');
+    }
+    try {
+      return await this.prisma.usuarios.update({
+        where: { id: userId },
+        data: {
+          ...(username !== undefined ? { username } : {}),
+          ...(nombreCompleto !== undefined ? { nombre_completo: nombreCompleto } : {}),
+          ...(email !== undefined ? { email } : {}),
+          ...(payload.sede !== undefined ? { sede: payload.sede?.trim() || null } : {}),
+        },
+        select: {
+          id: true,
+          username: true,
+          nombre_completo: true,
+          email: true,
+          rol: true,
+          sede: true,
+          activo: true,
+          motivo_inactivacion: true,
+          created_at: true,
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException('El usuario o correo ya está en uso.');
+      throw error;
+    }
+  }
+
+  async resetUserPassword(userId: string) {
+    const user = await this.prisma.usuarios.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+    const password = randomBytes(12).toString('base64url');
+    await this.prisma.usuarios.update({
+      where: { id: userId },
+      data: { password_hash: await bcrypt.hash(password, 10) },
+    });
+    return { password };
+  }
+
+  async updateUserPassword(userId: string, password: string) {
+    const user = await this.prisma.usuarios.findUnique({
+      where: { id: userId },
+      select: { id: true, rol: true },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+    if (user.rol !== 'Tecnico') {
+      throw new BadRequestException('Solo puedes cambiar la contraseña de un técnico.');
+    }
+    if (Buffer.byteLength(password, 'utf8') > 72) {
+      throw new BadRequestException('La contraseña no puede superar 72 bytes.');
+    }
+
+    await this.prisma.usuarios.update({
+      where: { id: userId },
+      data: { password_hash: await bcrypt.hash(password, 10) },
+    });
+    return { success: true };
+  }
+
+  async updateUserRole(userId: string, rol: 'Tecnico' | 'Admin', currentAdminId?: string) {
+    if (userId === currentAdminId) {
+      throw new BadRequestException('No puedes cambiar tu propio rol.');
+    }
     const user = await this.prisma.usuarios.findUnique({
       where: { id: userId },
       select: { id: true, rol: true },
@@ -445,13 +557,18 @@ export class AdminService {
         nombre_completo: true,
         email: true,
         rol: true,
+        sede: true,
         activo: true,
+        motivo_inactivacion: true,
         created_at: true,
       },
     });
   }
 
-  async toggleUserActive(userId: string) {
+  async toggleUserActive(userId: string, reason?: string, currentAdminId?: string) {
+    if (userId === currentAdminId) {
+      throw new BadRequestException('No puedes desactivar tu propio usuario.');
+    }
     const user = await this.prisma.usuarios.findUnique({
       where: { id: userId },
       select: { id: true, activo: true },
@@ -459,17 +576,25 @@ export class AdminService {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado.');
     }
+    if (user.activo && !reason?.trim()) {
+      throw new BadRequestException('Indica el motivo para desactivar este usuario.');
+    }
 
     return this.prisma.usuarios.update({
       where: { id: userId },
-      data: { activo: !user.activo },
+      data: {
+        activo: !user.activo,
+        ...(user.activo ? { motivo_inactivacion: reason!.trim() } : {}),
+      },
       select: {
         id: true,
         username: true,
         nombre_completo: true,
         email: true,
         rol: true,
+        sede: true,
         activo: true,
+        motivo_inactivacion: true,
         created_at: true,
       },
     });

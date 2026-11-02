@@ -7,8 +7,10 @@ export interface ServiceApi {
   tipo_servicio_nombre?: string | null;
   numero_orden: string;
   descripcion_especifica?: string | null;
+  fotos?: string[];
   valor_cobrado: number;
   estado: string;
+  ultima_observacion?: string | null;
   created_at: string;
   updated_at?: string | null;
 }
@@ -56,6 +58,27 @@ export interface MyAccountResponse {
 
 export type EstadoServicio = 'Pendiente' | 'Aprobado' | 'Observado' | 'Rechazado';
 
+export type CreateServicePayload = {
+  tipo_servicio_id: string;
+  numero_orden: string;
+  descripcion_especifica?: string;
+  fotos?: string[];
+  fotos_puertas?: string[];
+  fotos_ayudante?: string[];
+  puertas_desmontadas?: number;
+  requiere_ayudante?: boolean;
+  motivo_ayudante?: string;
+};
+
+export type CreateTransferPayload = {
+  tipo_servicio_id: string;
+  numero_orden: string;
+  descripcion_especifica?: string;
+  destino: string;
+  transporte: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
+  valor_cobrado?: number;
+};
+
 export function asEstadoServicio(value: string): EstadoServicio {
   return value as EstadoServicio;
 }
@@ -74,22 +97,12 @@ export const technicianApi = {
 
   getMyAccounts: () => apiFetch<CuentaApi[]>('/services/my-accounts'),
 
-  createService: (payload: {
-    tipo_servicio_id: string;
-    numero_orden: string;
-    descripcion_especifica?: string;
-  }) => apiFetch<ServiceApi>('/services', {
+  createService: (payload: CreateServicePayload) => apiFetch<ServiceApi>('/services', {
     method: 'POST',
     body: payload,
   }),
 
-  createTransfer: (payload: {
-    tipo_servicio_id: string;
-    numero_orden: string;
-    descripcion_especifica?: string;
-    destino: string;
-    transporte: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
-  }) => apiFetch<{
+  createTransfer: (payload: CreateTransferPayload) => apiFetch<{
     servicio: ServiceApi;
     valor_cobrado: number;
   }>('/services/transfer', {
@@ -97,11 +110,14 @@ export const technicianApi = {
     body: payload,
   }),
 
+  quoteTransfer: (payload: Omit<CreateTransferPayload, 'descripcion_especifica'>) => apiFetch<{ valor_cobrado: number }>('/services/transfer/quote', {
+    method: 'POST',
+    body: payload,
+  }),
+
   updateService: (id: string, payload: {
-    tipo_servicio_id?: string;
     numero_orden?: string;
     descripcion_especifica?: string;
-    estado?: EstadoServicio;
   }) => apiFetch<ServiceApi>(`/services/${id}`, {
     method: 'PATCH',
     body: payload,

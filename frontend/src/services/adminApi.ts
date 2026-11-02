@@ -14,6 +14,7 @@ export type UserRow = {
   rol: 'Tecnico' | 'Admin';
   sede?: string | null;
   activo: boolean;
+  motivo_inactivacion?: string | null;
   created_at: string;
 };
 
@@ -37,6 +38,7 @@ export type AccountService = {
   tipo_servicio_nombre: string | null;
   numero_orden: string;
   descripcion_especifica: string | null;
+  fotos?: string[];
   valor_cobrado: number;
   estado: EstadoServicio;
   created_at?: string;
@@ -45,7 +47,7 @@ export type AccountService = {
     estado_anterior: EstadoServicio | null;
     estado_nuevo: EstadoServicio;
     observacion: string | null;
-    fecha_accion: string;
+    fecha_accion: string | null;
     admin: string | null;
   }[];
 };
@@ -129,14 +131,15 @@ export function useUsers() {
       password: string;
       rol: 'Tecnico' | 'Admin';
       sede?: string;
+      generate_password?: boolean;
     }) => {
       try {
-        const created = await apiFetch<UserRow>(`${BASE}/users`, {
+        const result = await apiFetch<{ user: UserRow; generatedPassword?: string }>(`${BASE}/users`, {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        setUsers((prev) => [...prev, created]);
-        return created;
+        setUsers((prev) => [...prev, result.user]);
+        return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'No se pudo crear el usuario.';
         setCreateError(message);
@@ -158,9 +161,10 @@ export function useUsers() {
     [],
   );
 
-  const toggleActive = useCallback(async (id: string) => {
+  const toggleActive = useCallback(async (id: string, reason?: string) => {
     const updated = await apiFetch<UserRow>(`${BASE}/users/${id}/toggle-active`, {
       method: 'POST',
+      body: JSON.stringify({ reason }),
     });
     setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
     return updated;
@@ -235,5 +239,34 @@ export const reviewApi = {
     apiFetch<ExceptionRow>(`${BASE}/exceptions`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  getUser: (id: string) => apiFetch<UserRow>(`${BASE}/users/${id}`),
+
+  updateUser: (id: string, payload: { username: string; nombre_completo: string; email: string; sede?: string | null }) =>
+    apiFetch<UserRow>(`${BASE}/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  resetUserPassword: (id: string) =>
+    apiFetch<{ password: string }>(`${BASE}/users/${id}/reset-password`, { method: 'POST' }),
+
+  updateUserPassword: (id: string, password: string) =>
+    apiFetch<{ success: boolean }>(`${BASE}/users/${id}/password`, {
+      method: 'PATCH',
+      body: JSON.stringify({ password }),
+    }),
+
+  toggleUserActive: (id: string, reason?: string) =>
+    apiFetch<UserRow>(`${BASE}/users/${id}/toggle-active`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  updateUserRole: (id: string, rol: 'Tecnico' | 'Admin') =>
+    apiFetch<UserRow>(`${BASE}/users/${id}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rol }),
     }),
 };

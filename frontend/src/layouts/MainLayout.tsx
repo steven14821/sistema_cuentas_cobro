@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { EmLogo } from '../components/EmLogo';
@@ -10,14 +10,29 @@ import {
   LogOut,
   Menu,
   X,
+  Search,
   type LucideIcon,
 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import type { UserRow } from '../services/adminApi';
+
+const searchItemStyle: React.CSSProperties = {
+  display: 'block',
+  padding: '10px 12px',
+  color: 'var(--text-secondary)',
+  background: 'white',
+  fontSize: 12,
+};
 
 export const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [techSearch, setTechSearch] = useState('');
+  const [technicians, setTechnicians] = useState<UserRow[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // El técnico SOLO ve su portal. Las secciones admin se ocultan por completo.
   const isAdmin = user?.role === 'admin';
@@ -30,6 +45,32 @@ export const MainLayout = ({ children }) => {
     : [{ icon: Receipt, label: 'Mis Cuentas de Cobro', path: '/technician' }];
 
   const homePath = isAdmin ? '/dashboard' : '/technician';
+
+  useEffect(() => {
+    if (!isAdmin || !techSearch.trim()) return;
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const users = await apiFetch<UserRow[]>('/admin/users');
+        if (active) setTechnicians(users.filter((candidate) => candidate.rol === 'Tecnico'));
+      } catch {
+        if (active) setTechnicians([]);
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    }, 180);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [isAdmin, techSearch]);
+
+  const searchResults = technicians.filter((candidate) =>
+    `${candidate.nombre_completo} ${candidate.username} ${candidate.email}`
+      .toLocaleLowerCase()
+      .includes(techSearch.trim().toLocaleLowerCase()),
+  ).slice(0, 6);
 
   const handleLogout = () => {
     logout();
@@ -97,6 +138,44 @@ export const MainLayout = ({ children }) => {
           </div>
         )}
 
+        {isAdmin && (
+          <div style={{ position: 'relative', padding: '0 4px', marginTop: -18 }}>
+            <label htmlFor="technician-quick-search" style={{ display: 'block', margin: '0 8px 7px', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+              Buscar técnico
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', borderRadius: 10, border: '1px solid rgba(0,0,0,.12)', background: 'white' }}>
+              <Search size={15} color="var(--text-secondary)" />
+              <input
+                id="technician-quick-search"
+                value={techSearch}
+                onChange={(event) => { setTechSearch(event.target.value); setSearchOpen(true); }}
+                onFocus={() => setSearchOpen(true)}
+                onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
+                placeholder="Nombre, usuario o correo"
+                autoComplete="off"
+                style={{ width: '100%', minWidth: 0, border: 0, outline: 0, fontSize: 12, color: 'var(--ink)', background: 'transparent' }}
+              />
+            </div>
+            {searchOpen && techSearch.trim() && (
+              <div role="listbox" aria-label="Resultados de técnicos" style={{ position: 'absolute', zIndex: 30, top: '100%', left: 4, right: 4, marginTop: 6, overflow: 'hidden', borderRadius: 12, background: 'white', boxShadow: '0 14px 35px rgba(0,0,0,.15)', border: '1px solid #e5e7eb' }}>
+                {searchLoading ? <div style={searchItemStyle}>Buscando…</div> : searchResults.length === 0 ? <div style={searchItemStyle}>No se encontraron técnicos.</div> : searchResults.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    role="option"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => { setTechSearch(''); setSearchOpen(false); go(`/admin/users/${candidate.id}`); }}
+                    style={{ ...searchItemStyle, width: '100%', border: 0, textAlign: 'left', cursor: 'pointer' }}
+                  >
+                    <strong style={{ display: 'block', fontSize: 12, color: 'var(--ink)' }}>{candidate.nombre_completo}</strong>
+                    <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: 'var(--text-secondary)' }}>@{candidate.username} · {candidate.sede ?? 'Sin sede'} · {candidate.activo ? 'Activo' : 'Inactivo'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {navItems.map(item => (
             <NavItem
@@ -146,6 +225,7 @@ export const MainLayout = ({ children }) => {
       </main>
     </div>
   );
+
 };
 
 const NavItem = ({ icon: Icon, label, path, active = false, onNavigate }: {

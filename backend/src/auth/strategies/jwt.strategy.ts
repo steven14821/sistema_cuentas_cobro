@@ -21,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     try {
       const user = await this.prisma.usuarios.findUnique({ where: { id: payload.sub } });
-      if (!user) {
+      if (!user || !user.activo) {
         this.logger.error(`User NOT found in database for ID: ${payload.sub}`);
         throw new UnauthorizedException('Usuario no encontrado');
       }

@@ -9,7 +9,7 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const user = await this.prisma.usuarios.findUnique({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    if (!user || !user.activo || !(await bcrypt.compare(password, user.password_hash))) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 

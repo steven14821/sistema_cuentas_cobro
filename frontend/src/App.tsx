@@ -5,6 +5,7 @@ import { Dashboard } from './pages/dashboard/Dashboard';
 import { TechnicianPortal } from './pages/TechnicianPortal';
 import { AdminReviewPage } from './pages/AdminReviewPage';
 import { AccountDetailPage } from './pages/admin/AccountDetailPage';
+import { UserDetailPage } from './pages/admin/UserDetailPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
 import { useAuth } from './context/AuthContext';
 
@@ -67,6 +68,15 @@ export const App = () => {
           element={
             <Protected roles={['admin']}>
               <AccountDetailPage />
+            </Protected>
+          }
+        />
+
+        <Route
+          path="/admin/users/:id"
+          element={
+            <Protected roles={['admin']}>
+              <UserDetailPage />
             </Protected>
           }
         />

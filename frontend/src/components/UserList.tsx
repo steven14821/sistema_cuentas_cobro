@@ -17,7 +17,8 @@ type Props = {
   loading: boolean;
   currentUserId?: string;
   onUpdateRole: (id: string, rol: 'Tecnico' | 'Admin') => Promise<void>;
-  onToggleActive: (id: string) => Promise<void>;
+  onToggleActive: (id: string, reason?: string) => Promise<void>;
+  onSelectUser?: (id: string) => void;
   onDeleteUser: (id: string) => Promise<void>;
   onCreateExceptionForUser?: (userId: string) => void;
 };
@@ -28,6 +29,7 @@ export const UserList = ({
   currentUserId,
   onUpdateRole,
   onToggleActive,
+  onSelectUser,
   onDeleteUser,
   onCreateExceptionForUser,
 }: Props) => {
@@ -54,6 +56,19 @@ export const UserList = ({
       setActionError(msg);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleToggleActive = async (u: UserRow) => {
+    const reason = u.activo
+      ? window.prompt(`Motivo para desactivar a ${u.nombre_completo}:`)?.trim()
+      : undefined;
+    if (u.activo && !reason) return;
+    setActionError(null);
+    try {
+      await onToggleActive(u.id, reason);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'No se pudo actualizar el estado del usuario.');
     }
   };
 
@@ -139,7 +154,13 @@ export const UserList = ({
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   <td style={{ padding: '14px 0', fontSize: '14px', fontWeight: 500 }}>
-                    {u.username}
+                    <button
+                      type="button"
+                      onClick={() => onSelectUser?.(u.id)}
+                      style={{ background: 'none', border: 0, padding: 0, color: 'var(--blue)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit', fontWeight: 600 }}
+                    >
+                      {u.username}
+                    </button>
                     {isSelf && (
                       <span
                         style={{
@@ -156,7 +177,15 @@ export const UserList = ({
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '14px 0', fontSize: '14px' }}>{u.nombre_completo}</td>
+                  <td style={{ padding: '14px 0', fontSize: '14px' }}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectUser?.(u.id)}
+                      style={{ background: 'none', border: 0, padding: 0, color: 'var(--ink)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit', fontWeight: 600, textAlign: 'left' }}
+                    >
+                      {u.nombre_completo}
+                    </button>
+                  </td>
                   <td style={{ padding: '14px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>{u.email}</td>
                   <td style={{ padding: '14px 0', fontSize: '14px' }}>
                     <select
@@ -206,7 +235,7 @@ export const UserList = ({
                     <button
                       type="button"
                       disabled={isSelf}
-                      onClick={() => onToggleActive(u.id)}
+                      onClick={() => void handleToggleActive(u)}
                       style={{
                         padding: '5px 10px',
                         borderRadius: '8px',

@@ -100,6 +100,42 @@ async function bootstrap() {
     { nombre: 'HISENSE: Diagnósticos/Ajustes/Cambios', valor: 20000 },
     { nombre: 'HISENSE: Cambio de compresor', valor: 90000 },
     { nombre: 'HISENSE: Cambio de parte aires', valor: 35000 },
+
+    // Hyundai y TCL: catálogo exclusivo para TV, con las tarifas Samsung actuales.
+    ...(['HYUNDAI', 'TCL'] as const).flatMap((marca) =>
+      [
+        { servicio: 'Carry IN taller TV', valor: 18000 },
+        { servicio: 'Garantía TV IH (Carro Personal)', valor: 35000 },
+        { servicio: 'Garantía TV IH (60" o más)', valor: 45000 },
+        { servicio: 'Garantía SR TV', valor: 18000 },
+        { servicio: 'Garantía TV almacén', valor: 25000 },
+        { servicio: 'Garantía TV almacén (65" o más)', valor: 35000 },
+        { servicio: 'Garantía TV IH partes pequeñas', valor: 20000 },
+        { servicio: 'Garantía TV IH partes pequeñas (65"/75" ayudante)', valor: 30000 },
+        { servicio: 'Garantía TV IH partes pequeñas (desde 75")', valor: 50000 },
+        { servicio: 'Garantía TV recogido almacén (barras)', valor: 47000 },
+        { servicio: 'Reparación IH de barras led', valor: 38000 },
+        { servicio: 'Instalación TV (32" a 60" ayudante)', valor: 40000 },
+        { servicio: 'Instalación TV (65" a 77" incluye ayudante)', valor: 50000 },
+        { servicio: 'Instalación TV (80" a 100" incluye ayudante)', valor: 80000 },
+        { servicio: 'IH panel hasta 60"', valor: 25000 },
+        { servicio: 'IH panel a partir de 60" (incluye ayudante)', valor: 35000 },
+        { servicio: 'IH Paneles a partir 75" (incluye ayudante)', valor: 50000 },
+        { servicio: 'Recolección TV cambio hasta 58"', valor: 10000 },
+        { servicio: 'Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
+        { servicio: 'Recolección TV cambio a partir de 75" (+ ayudante)', valor: 25000 },
+        { servicio: 'Recolección mano a mano (TV)', valor: 5000 },
+        { servicio: 'Eco Repair IH hasta 60"', valor: 38000 },
+        { servicio: 'Eco Repair IH 65" y 70"', valor: 48000 },
+        { servicio: 'Eco Repair IH desde 75" (incluye ayudantes)', valor: 75000 },
+        { servicio: 'Limpieza partículas pantalla', valor: 30000 },
+        { servicio: 'Facturado Panel 75"', valor: 75000 },
+        { servicio: 'Facturado panel 58" para abajo', valor: 55000 },
+      ].map(({ servicio, valor }) => ({
+        nombre: `${marca}: ${servicio}`,
+        valor,
+      })),
+    ),
   ];
 
   console.log('🚀 Iniciando actualización de tarifas...');

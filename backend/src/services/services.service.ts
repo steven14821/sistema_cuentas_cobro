@@ -54,6 +54,7 @@ export class ServicesService {
       descripcion_especifica: servicio.descripcion_especifica,
       valor_cobrado: Number(servicio.valor_cobrado),
       estado: servicio.estado,
+      ultima_observacion: servicio.auditoria_servicios?.[0]?.observacion || null,
       created_at: servicio.created_at,
       updated_at: servicio.updated_at,
     };
@@ -102,6 +103,73 @@ export class ServicesService {
       );
     }
 
+    const puertasDesmontadas = dto.puertas_desmontadas ?? 0;
+    if (!Number.isInteger(puertasDesmontadas) || puertasDesmontadas < 0 || puertasDesmontadas > 4) {
+      throw new BadRequestException('La cantidad de puertas desmontadas debe estar entre 0 y 4.');
+    }
+    const nombreTipoNormalizado = tipo.nombre
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const esRecoleccion = /recoleccion|recogida/.test(nombreTipoNormalizado);
+    const incluyeAyudante = esRecoleccion && nombreTipoNormalizado.includes('incluye ayudante');
+    const requiereAyudante = (dto.requiere_ayudante ?? false) && !incluyeAyudante;
+    const esRecogidaNevecon = esRecoleccion && nombreTipoNormalizado.includes('nevecon');
+    if (puertasDesmontadas > 0 && !esRecogidaNevecon) {
+      throw new BadRequestException(
+        'El desmonte de puertas solo aplica a recogidas de nevecon.',
+      );
+    }
+    if (requiereAyudante && !esRecoleccion) {
+      throw new BadRequestException(
+        'El adicional de ayudante solo aplica a servicios de recolección.',
+      );
+    }
+
+    const fotosPuertas = dto.fotos_puertas ?? [];
+    const fotosAyudante = dto.fotos_ayudante ?? [];
+    const fotos = [...(dto.fotos ?? []), ...fotosPuertas, ...fotosAyudante];
+    if (
+      fotos.length > 10 ||
+      fotos.some(
+        (foto) =>
+          !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(foto) ||
+          foto.length > 1_400_000,
+      )
+    ) {
+      throw new BadRequestException('Las fotos deben ser imágenes JPG, PNG o WebP de máximo 1 MB cada una (hasta 10).');
+    }
+    if (puertasDesmontadas > 0 && fotosPuertas.length === 0) {
+      throw new BadRequestException(
+        'Agrega al menos una foto de las puertas desmontadas.',
+      );
+    }
+    if (requiereAyudante && fotosAyudante.length === 0) {
+      throw new BadRequestException(
+        'Agrega al menos una foto del motivo por el que necesitaste ayudante.',
+      );
+    }
+
+    const detallesRecoleccion: string[] = [];
+    if (puertasDesmontadas > 0) {
+      detallesRecoleccion.push(
+        `Puertas desmontadas: ${puertasDesmontadas} (fotos: ${fotosPuertas.length})`,
+      );
+    }
+    if (requiereAyudante) {
+      const motivoAyudante = dto.motivo_ayudante?.trim();
+      if (!motivoAyudante) {
+        throw new BadRequestException('Describe por qué necesitaste ayudante.');
+      }
+      detallesRecoleccion.push(
+        `Ayudante: sí (motivo: ${motivoAyudante}, fotos del motivo: ${fotosAyudante.length})`,
+      );
+    }
+    const descripcion = [
+      dto.descripcion_especifica?.trim(),
+      detallesRecoleccion.length ? `Recolección: ${detallesRecoleccion.join(', ')}` : null,
+    ].filter(Boolean).join(' | ') || null;
+
     const periodo = getPeriodoARadicar(getColombiaToday());
 
     let cuenta = await this.prisma.cuentas_cobro.findUnique({
@@ -149,20 +217,78 @@ export class ServicesService {
       );
     }
 
-    // El valor lo define el tipo de servicio (no el cliente).
+    const valorAdicional = puertasDesmontadas * 10_000 + (requiereAyudante ? 10_000 : 0);
     const servicio = await this.prisma.servicios.create({
       data: {
         cuenta_cobro_id: cuenta.id,
         tipo_servicio_id: tipo.id,
         numero_orden: numeroOrden,
-        descripcion_especifica: dto.descripcion_especifica ?? null,
-        valor_cobrado: tipo.valor_estandar,
+        descripcion_especifica: descripcion,
+        fotos,
+        valor_cobrado: Number(tipo.valor_estandar) + valorAdicional,
         estado: 'Pendiente',
       },
       include: { tipos_servicio: true },
     });
 
     return this.serializeServicio(servicio);
+  }
+
+  private async calculateTransfer(
+    usuarioId: string,
+    dto: CreateTransferDto,
+    currentServices: { id: string; valor_cobrado: number; tipo_servicio_id: string }[],
+  ) {
+    const user = await this.prisma.usuarios.findUnique({
+      where: { id: usuarioId },
+      select: { sede: true },
+    });
+    const isCucuta = user?.sede?.toLowerCase().includes('cuc') ?? false;
+    if (!isCucuta && dto.transporte !== 'MOTO_PROPIA') {
+      throw new BadRequestException(
+        'Solo los técnicos de Cúcuta pueden registrar traslados en vehículo empresa.',
+      );
+    }
+
+    const tipo = await this.prisma.tipos_servicio.findUnique({
+      where: { id: dto.tipo_servicio_id },
+    });
+    if (!tipo || !tipo.activo) {
+      throw new BadRequestException(
+        'El tipo de servicio de este traslado no existe o está inactivo.',
+      );
+    }
+    const transportType =
+      dto.transporte === 'MOTO_PROPIA'
+        ? TransportType.MOTO
+        : TransportType.VEHICLE;
+    const calculatedValue = this.transportCalculator.calculateTransferValue(
+      transportType,
+      dto.destino,
+      currentServices,
+      Number(tipo.valor_estandar),
+    );
+    if (calculatedValue === 0) {
+      throw new BadRequestException(
+        `No hay tarifa o regla de traslado reconocida para el destino "${dto.destino}" ` +
+          `con transporte "${dto.transporte}".`,
+      );
+    }
+
+    return { calculatedValue, isCucuta };
+  }
+
+  async quoteTransfer(
+    usuarioId: string,
+    dto: CreateTransferDto,
+    currentServices: { id: string; valor_cobrado: number; tipo_servicio_id: string }[] = [],
+  ) {
+    const { calculatedValue } = await this.calculateTransfer(
+      usuarioId,
+      dto,
+      currentServices,
+    );
+    return { valor_cobrado: calculatedValue };
   }
 
   async createTransfer(
@@ -193,45 +319,11 @@ export class ServicesService {
       throw new BadRequestException('La cuenta ya fue radicada.');
     }
 
-    const user = await this.prisma.usuarios.findUnique({
-      where: { id: usuarioId },
-      select: { sede: true },
-    });
-    const isCucuta = user?.sede?.toLowerCase().includes('cuc') ?? false;
-
-    if (!isCucuta && dto.transporte !== 'MOTO_PROPIA') {
-      throw new BadRequestException(
-        'Solo los técnicos de Cúcuta pueden registrar traslados en vehículo empresa.',
-      );
-    }
-
-    const transportType =
-      dto.transporte === 'MOTO_PROPIA'
-        ? TransportType.MOTO
-        : TransportType.VEHICLE;
-
-    const tipo = await this.prisma.tipos_servicio.findUnique({
-      where: { id: dto.tipo_servicio_id },
-    });
-    if (!tipo || !tipo.activo) {
-      throw new BadRequestException(
-        'El tipo de servicio de este traslado no existe o está inactivo.',
-      );
-    }
-
-    const calculatedValue = this.transportCalculator.calculateTransferValue(
-      transportType,
-      dto.destino,
+    const { calculatedValue, isCucuta } = await this.calculateTransfer(
+      usuarioId,
+      dto,
       currentServices,
-      Number(tipo.valor_estandar),
     );
-
-    if (calculatedValue === 0) {
-      throw new BadRequestException(
-        `No hay tarifa o regla de traslado reconocida para el destino "${dto.destino}" ` +
-          `con transporte "${dto.transporte}".`,
-      );
-    }
 
     if (dto.valor_cobrado !== undefined && Math.abs(dto.valor_cobrado - calculatedValue) > 1) {
       throw new BadRequestException(
@@ -338,17 +430,52 @@ export class ServicesService {
       await this.assertVentanaAbierta(usuarioId);
     }
 
+    let numeroOrdenActualizado: string | undefined;
+    if (dto.numero_orden !== undefined) {
+      const digits = dto.numero_orden.replace(/^(T-)?(BUC|CUC)-/i, '').trim();
+      const prefix = servicio.numero_orden.match(/^(T-)?(BUC|CUC)-/i)?.[0] ?? '';
+      numeroOrdenActualizado = `${prefix}${digits}`;
+      const duplicate = await this.prisma.servicios.findFirst({
+        where: {
+          cuenta_cobro_id: servicio.cuenta_cobro_id,
+          numero_orden: numeroOrdenActualizado,
+          id: { not: servicioId },
+        },
+      });
+      if (duplicate) {
+        throw new BadRequestException(`La orden ${digits} ya está registrada en esta cuenta.`);
+      }
+    }
+
     const updated = await this.prisma.servicios.update({
       where: { id: servicioId },
       data: {
         tipo_servicio_id: dto.tipo_servicio_id,
-        numero_orden: dto.numero_orden,
+        numero_orden: numeroOrdenActualizado,
         descripcion_especifica: dto.descripcion_especifica,
         updated_at: new Date(),
         // Al editar un servicio rechazado/observado, vuelve a 'Pendiente' para que el admin lo revise de nuevo.
         estado: isEditableState ? 'Pendiente' : servicio.estado,
       },
     });
+
+    const estados = await this.prisma.servicios.findMany({
+      where: { cuenta_cobro_id: updated.cuenta_cobro_id },
+      select: { estado: true },
+    });
+    const estadosUnicos = new Set(estados.map((item) => item.estado));
+    if (estadosUnicos.size === 1) {
+      const estado = [...estadosUnicos][0];
+      if (estado !== null) {
+        await this.prisma.cuentas_cobro.update({
+          where: { id: updated.cuenta_cobro_id },
+          data: {
+            estado,
+            fecha_aprobacion: estado === 'Aprobado' ? new Date() : null,
+          },
+        });
+      }
+    }
 
     return this.serializeServicio(updated);
   }
@@ -376,7 +503,14 @@ export class ServicesService {
       },
       include: {
         servicios: {
-          include: { tipos_servicio: true },
+          include: {
+            tipos_servicio: true,
+            auditoria_servicios: {
+              where: { estado_nuevo: { in: ['Observado', 'Rechazado'] } },
+              orderBy: { fecha_accion: 'desc' },
+              take: 1,
+            },
+          },
           orderBy: { created_at: 'asc' },
         },
       },
@@ -458,7 +592,14 @@ export class ServicesService {
       where: { usuario_id: usuarioId, radicada: true },
       include: {
         servicios: {
-          include: { tipos_servicio: true },
+          include: {
+            tipos_servicio: true,
+            auditoria_servicios: {
+              where: { estado_nuevo: { in: ['Observado', 'Rechazado'] } },
+              orderBy: { fecha_accion: 'desc' },
+              take: 1,
+            },
+          },
           orderBy: { created_at: 'asc' },
         },
       },

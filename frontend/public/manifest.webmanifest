@@ -1,0 +1,16 @@
+{
+  "name": "E&M Cuentas de Cobro",
+  "short_name": "Cuentas E&M",
+  "description": "Registro y seguimiento de cuentas de cobro técnicas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#0057b8",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

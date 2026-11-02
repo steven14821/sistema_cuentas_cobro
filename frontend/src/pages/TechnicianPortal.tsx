@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,8 +16,17 @@ import {
   isVentanaAbierta,
   nombreMes,
 } from '../lib/period';
-import { AlertTriangle, CheckCircle2, Edit2, Plus, Send, Trash2, Truck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
 import { RegistroFlujoModal } from '../components/RegistroFlujoModal';
+import {
+  enqueueOperation,
+  getCachedValue,
+  getPendingOperations,
+  removePendingOperation,
+  setCachedValue,
+  QueuedOfflineError,
+  type PendingOperation,
+} from '../lib/offlineStore';
 
 // Función para extraer únicamente el número de orden limpio para el técnico
 export function getNumeroOrdenLimpio(numeroOrden: string): string {
@@ -28,6 +37,7 @@ interface OrdenAgrupada {
   numeroOrden: string; // Ej: "12345"
   servicioPrincipal: ServiceApi;
   traslado?: ServiceApi;
+  servicioObservado?: ServiceApi;
   totalValor: number;
   estado: string;
 }
@@ -60,11 +70,32 @@ export const TechnicianPortal = () => {
   const [loadError, setLoadError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [radicando, setRadicando] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([]);
+  const [syncingQueue, setSyncingQueue] = useState(false);
+  const queueSyncLock = useRef(false);
+  const [editingService, setEditingService] = useState<ServiceApi | null>(null);
+  const [correctionOrder, setCorrectionOrder] = useState('');
+  const [correctionDescription, setCorrectionDescription] = useState('');
+  const [savingCorrection, setSavingCorrection] = useState(false);
+
+  const isNetworkFailure = (err: unknown) =>
+    err instanceof TypeError || !navigator.onLine ||
+    /failed to fetch|network error|fetch failed/i.test(err instanceof Error ? err.message : '');
 
   // ---- Carga de datos ----
 
   const loadAccount = useCallback(async () => {
-    const res = await technicianApi.getMyAccount();
+    let res: Awaited<ReturnType<typeof technicianApi.getMyAccount>>;
+    try {
+      res = await technicianApi.getMyAccount();
+      if (user?.id) await setCachedValue(`account:${user.id}`, res);
+    } catch (err) {
+      if (!isNetworkFailure(err) || !user?.id) throw err;
+      const cached = await getCachedValue<Awaited<ReturnType<typeof technicianApi.getMyAccount>>>(`account:${user.id}`);
+      if (!cached) throw new Error('No hay una cuenta guardada para consultar sin conexión.');
+      res = cached;
+    }
     setPeriodo(res.periodo);
     setCuenta(res.cuenta);
     setAccountMeta({
@@ -74,19 +105,184 @@ export const TechnicianPortal = () => {
       puedeEditar: res.puedeEditar ?? ((res.ventanaAbierta || !!res.tieneExcepcion) && !res.cuenta?.radicada),
     });
     return res;
-  }, [hoy.dia]);
+  }, [hoy.dia, user?.id]);
 
   const loadHistory = useCallback(async () => {
-    const cuentas = await technicianApi.getMyAccounts();
+    let cuentas: CuentaApi[];
+    try {
+      cuentas = await technicianApi.getMyAccounts();
+      if (user?.id) await setCachedValue(`history:${user.id}`, cuentas);
+    } catch (err) {
+      if (!isNetworkFailure(err) || !user?.id) throw err;
+      const cached = await getCachedValue<CuentaApi[]>(`history:${user.id}`);
+      if (!cached) throw new Error('No hay historial guardado para consultar sin conexión.');
+      cuentas = cached;
+    }
     setHistorial(cuentas);
-  }, []);
+  }, [user?.id]);
+
+  const refreshPendingOperations = useCallback(async () => {
+    if (!user?.id) return;
+    setPendingOperations(await getPendingOperations(user.id));
+  }, [user?.id]);
+
+  const syncPendingOperations = useCallback(async () => {
+    if (!user?.id || !navigator.onLine || queueSyncLock.current) return;
+    queueSyncLock.current = true;
+    setSyncingQueue(true);
+    try {
+      const operations = await getPendingOperations(user.id);
+      setPendingOperations(operations);
+      let changedServer = false;
+      for (const operation of operations) {
+        if (operation.status === 'failed') continue;
+        try {
+          const current = await technicianApi.getMyAccount();
+          const services = current.cuenta?.servicios ?? [];
+          if (operation.kind === 'service' && operation.servicePayload) {
+            const payload = operation.servicePayload;
+            const order = getNumeroOrdenLimpio(payload.numero_orden);
+            const details: string[] = [];
+            if (payload.puertas_desmontadas) {
+              details.push(`Puertas desmontadas: ${payload.puertas_desmontadas} (fotos: ${payload.fotos_puertas?.length ?? 0})`);
+            }
+            if (payload.requiere_ayudante) {
+              details.push(`Ayudante: sí (motivo: ${payload.motivo_ayudante?.trim()}, fotos del motivo: ${payload.fotos_ayudante?.length ?? 0})`);
+            }
+            const expectedDescription = [
+              payload.descripcion_especifica?.trim(),
+              details.length ? `Recolección: ${details.join(', ')}` : null,
+            ].filter(Boolean).join(' | ') || null;
+            const existing = services.find((service) => getNumeroOrdenLimpio(service.numero_orden) === order && !service.numero_orden.startsWith('T-'));
+            if (existing) {
+              changedServer = true;
+              if (existing.tipo_servicio_id !== payload.tipo_servicio_id || existing.descripcion_especifica !== expectedDescription) {
+                throw new Error(`La orden ${order} ya existe con datos diferentes. Verifícala antes de sincronizar.`);
+              }
+            } else {
+              await technicianApi.createService(payload);
+              changedServer = true;
+            }
+          } else if (operation.kind === 'transfer' && operation.transferPayload) {
+            const payload = operation.transferPayload;
+            const order = getNumeroOrdenLimpio(payload.numero_orden);
+            const existing = services.find((service) => getNumeroOrdenLimpio(service.numero_orden) === order && service.numero_orden.startsWith('T-'));
+            if (existing) {
+              changedServer = true;
+              if (existing.tipo_servicio_id !== payload.tipo_servicio_id || existing.descripcion_especifica !== payload.descripcion_especifica) {
+                throw new Error(`El traslado de la orden ${order} ya existe con datos diferentes. Revisa la cuenta.`);
+              }
+            } else {
+              await technicianApi.createTransfer(payload);
+              changedServer = true;
+            }
+          } else {
+            throw new Error('La operación local está incompleta y no puede sincronizarse.');
+          }
+          await removePendingOperation(operation.id);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'No se pudo sincronizar esta operación.';
+          const isNetworkError = !navigator.onLine || err instanceof TypeError || /failed to fetch|network error|fetch failed/i.test(message);
+          if (isNetworkError) break;
+          const failedOperation = { ...operation, status: 'failed' as const, error: message };
+          await enqueueOperation(failedOperation);
+        }
+        setPendingOperations(await getPendingOperations(user.id));
+      }
+      if (changedServer) await Promise.all([loadAccount(), loadHistory()]);
+    } finally {
+      queueSyncLock.current = false;
+      setSyncingQueue(false);
+      await refreshPendingOperations().catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'No se pudo actualizar la cola local.');
+      });
+    }
+  }, [user?.id, loadAccount, loadHistory, refreshPendingOperations]);
+
+  const queueOperation = useCallback(async (
+    kind: PendingOperation['kind'],
+    payload: NonNullable<PendingOperation['servicePayload']> | NonNullable<PendingOperation['transferPayload']>,
+  ) => {
+    if (!user?.id) throw new Error('No se pudo identificar tu usuario para guardar la operación.');
+    const operation: PendingOperation = {
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      userId: user.id,
+      createdAt: new Date().toISOString(),
+      kind,
+      ...(kind === 'service'
+        ? { servicePayload: payload as NonNullable<PendingOperation['servicePayload']> }
+        : { transferPayload: payload as NonNullable<PendingOperation['transferPayload']> }),
+      status: 'pending',
+    };
+    await enqueueOperation(operation);
+    await refreshPendingOperations().catch((err) => {
+      setLoadError(err instanceof Error ? err.message : 'La operación quedó guardada, pero no se pudo actualizar su estado.');
+    });
+    throw new QueuedOfflineError();
+  }, [user?.id, refreshPendingOperations]);
+
+  const retryPendingOperation = useCallback(async (operation: PendingOperation) => {
+    try {
+      const { error: _error, ...retry } = operation;
+      await enqueueOperation({ ...retry, status: 'pending' });
+      await refreshPendingOperations();
+      void syncPendingOperations();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'No se pudo reintentar la operación.');
+    }
+  }, [refreshPendingOperations, syncPendingOperations]);
+
+  const discardPendingOperation = useCallback(async (operation: PendingOperation) => {
+    const order = operation.servicePayload?.numero_orden ?? operation.transferPayload?.numero_orden ?? 'sin número';
+    if (!window.confirm(`¿Quitar de la cola la operación de la orden ${getNumeroOrdenLimpio(order)}? Esto no borra registros que ya estén en el servidor.`)) return;
+    try {
+      await removePendingOperation(operation.id);
+      await refreshPendingOperations();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'No se pudo quitar la operación de la cola.');
+    }
+  }, [refreshPendingOperations]);
+
+  const createServiceWithOfflineSupport = useCallback(async (payload: NonNullable<PendingOperation['servicePayload']>) => {
+    if (!navigator.onLine) return queueOperation('service', payload);
+    try {
+      return await technicianApi.createService(payload);
+    } catch (err) {
+      if (err instanceof TypeError || /failed to fetch|network error|fetch failed/i.test(err instanceof Error ? err.message : '')) {
+        return queueOperation('service', payload);
+      }
+      throw err;
+    }
+  }, [queueOperation]);
+
+  const createTransferWithOfflineSupport = useCallback(async (payload: NonNullable<PendingOperation['transferPayload']>) => {
+    if (!navigator.onLine) return queueOperation('transfer', payload);
+    try {
+      const response = await technicianApi.createTransfer(payload);
+      return { servicio: response.servicio, valor_cobrado: response.valor_cobrado };
+    } catch (err) {
+      if (err instanceof TypeError || /failed to fetch|network error|fetch failed/i.test(err instanceof Error ? err.message : '')) {
+        return queueOperation('transfer', payload);
+      }
+      throw err;
+    }
+  }, [queueOperation]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setLoadError('');
     try {
-      const [typesRes] = await Promise.all([
-        technicianApi.getTypes(),
+      let typesRes: TipoServicioApi[];
+      try {
+        typesRes = await technicianApi.getTypes();
+        if (user?.id) await setCachedValue(`types:${user.id}`, typesRes);
+      } catch (err) {
+        if (!isNetworkFailure(err) || !user?.id) throw err;
+        const cached = await getCachedValue<TipoServicioApi[]>(`types:${user.id}`);
+        if (!cached) throw new Error('No hay tipos de servicio guardados para registrar sin conexión.');
+        typesRes = cached;
+      }
+      await Promise.all([
         loadAccount(),
         loadHistory(),
       ]);
@@ -97,7 +293,7 @@ export const TechnicianPortal = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadAccount, loadHistory]);
+  }, [loadAccount, loadHistory, user?.id]);
 
   const refreshTiposIfStale = useCallback(async () => {
     if (!tiposStale) return;
@@ -111,6 +307,25 @@ export const TechnicianPortal = () => {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setOnline(true);
+      void syncPendingOperations();
+    };
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    void refreshPendingOperations().then(() => {
+      if (navigator.onLine) void syncPendingOperations();
+    }).catch((err) => {
+      setLoadError(err instanceof Error ? err.message : 'No se pudo leer la cola local.');
+    });
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [refreshPendingOperations, syncPendingOperations]);
 
   // ---- Derivados ----
 
@@ -147,6 +362,10 @@ export const TechnicianPortal = () => {
         }
       }
 
+      if (['Observado', 'Rechazado'].includes(s.estado)) {
+        grupos[cleanNum].servicioObservado = s;
+      }
+
       if (isTraslado && grupos[cleanNum].servicioPrincipal === s) {
         grupos[cleanNum].traslado = s;
       }
@@ -158,6 +377,23 @@ export const TechnicianPortal = () => {
   // El historial no repite el período actual
   const historialOtros = historial.filter(
     (c) => !(c.mes === periodo.mes && c.anio === periodo.anio),
+  );
+  const ordenesRecientes = useMemo(() => {
+    const allServices = [
+      ...(cuenta?.servicios ?? []),
+      ...historial.flatMap((entry) => entry.servicios ?? []),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const seen = new Set<string>();
+    return allServices.flatMap((service) => {
+      const clean = getNumeroOrdenLimpio(service.numero_orden);
+      if (seen.has(clean)) return [];
+      seen.add(clean);
+      return [clean];
+    }).slice(0, 8);
+  }, [cuenta, historial]);
+  const ordenesExistentes = useMemo(
+    () => [...new Set(servicios.filter((service) => !service.numero_orden.startsWith('T-')).map((service) => getNumeroOrdenLimpio(service.numero_orden)))],
+    [servicios],
   );
 
   // ---- PDF ----
@@ -222,7 +458,9 @@ export const TechnicianPortal = () => {
 
   const closeModal = () => {
     setShowModal(false);
-    loadAccount();
+    if (navigator.onLine) {
+      loadAccount().catch((err) => setLoadError(err instanceof Error ? err.message : 'No se pudo actualizar la cuenta.'));
+    }
   };
 
   const handleEliminarOrden = async (grupo: OrdenAgrupada) => {
@@ -250,6 +488,40 @@ export const TechnicianPortal = () => {
       setLoadError(err instanceof Error ? err.message : 'No se pudo radicar la cuenta.');
     } finally {
       setRadicando(false);
+    }
+  };
+
+  const startCorrection = (service: ServiceApi) => {
+    setEditingService(service);
+    setCorrectionOrder(getNumeroOrdenLimpio(service.numero_orden));
+    setCorrectionDescription(service.descripcion_especifica ?? '');
+  };
+
+  const handleSaveCorrection = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingService) return;
+    const order = correctionOrder.replace(/\D/g, '');
+    if (!/^\d{5}$/.test(order)) {
+      setLoadError('El número de orden debe contener exactamente 5 dígitos.');
+      return;
+    }
+    if (!correctionDescription.trim()) {
+      setLoadError('La descripción de la orden es obligatoria.');
+      return;
+    }
+    setSavingCorrection(true);
+    setLoadError('');
+    try {
+      await technicianApi.updateService(editingService.id, {
+        numero_orden: order,
+        descripcion_especifica: correctionDescription.trim(),
+      });
+      setEditingService(null);
+      await Promise.all([loadAccount(), loadHistory()]);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'No se pudo enviar la corrección.');
+    } finally {
+      setSavingCorrection(false);
     }
   };
 
@@ -347,6 +619,35 @@ export const TechnicianPortal = () => {
           )}
         </header>
 
+        <div className={`connection-status ${online ? 'is-online' : 'is-offline'}`} role="status">
+          {online ? <Wifi size={16} /> : <WifiOff size={16} />}
+          <span>{online ? 'Con conexión' : 'Sin conexión'}</span>
+          {pendingOperations.length > 0 && (
+            <span>
+              · {pendingOperations.length} {pendingOperations.length === 1 ? 'operación pendiente' : 'operaciones pendientes'}
+            </span>
+          )}
+          {pendingOperations.length > 0 && (
+            <button type="button" onClick={() => void syncPendingOperations()} disabled={!online || syncingQueue}>
+              <RotateCw size={14} className={syncingQueue ? 'sync-spinning' : undefined} />
+              {syncingQueue ? 'Sincronizando…' : 'Sincronizar'}
+            </button>
+          )}
+        </div>
+        {pendingOperations.some((operation) => operation.status === 'failed') && (
+          <div className="queue-conflicts" role="alert">
+            {pendingOperations.filter((operation) => operation.status === 'failed').map((operation) => (
+              <div key={operation.id} className="queue-conflict-row">
+                <p>{operation.error}</p>
+                <div>
+                  <button type="button" onClick={() => void retryPendingOperation(operation)}>Reintentar</button>
+                  <button type="button" onClick={() => void discardPendingOperation(operation)}>Quitar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {loadError && (
           <div style={{
             padding: '14px 18px',
@@ -416,7 +717,7 @@ export const TechnicianPortal = () => {
             </div>
           ) : (
             <>
-              <div className="table-scroll table-wide">
+              <div className="table-scroll table-wide desktop-only">
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead style={{ borderBottom: '1px solid #eee' }}>
                     <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
@@ -458,6 +759,11 @@ export const TechnicianPortal = () => {
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '280px' }}>
                           {g.servicioPrincipal.descripcion_especifica || '—'}
+                          {g.servicioObservado?.ultima_observacion && (
+                            <div style={{ marginTop: 6, color: '#b45309', fontSize: 12, fontWeight: 600 }}>
+                              Observación: {g.servicioObservado.ultima_observacion}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '15px', fontWeight: '700', textAlign: 'right', color: 'var(--ink)' }}>
                           {formatCOP(g.totalValor)}
@@ -485,11 +791,58 @@ export const TechnicianPortal = () => {
                               Eliminar
                             </button>
                           )}
+                          {g.servicioObservado && (
+                            <button
+                              type="button"
+                              onClick={() => startCorrection(g.servicioObservado!)}
+                              style={{
+                                marginLeft: 6,
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #f59e0b',
+                                backgroundColor: '#fffbeb',
+                                color: '#92400e',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                              }}
+                            >
+                              Corregir
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="mobile-only order-cards">
+                {ordenesAgrupadas.map((g) => (
+                  <article key={g.numeroOrden} className="order-card">
+                    <div className="order-card-heading">
+                      <strong>Orden {g.numeroOrden}</strong>
+                      <strong>{formatCOP(g.totalValor)}</strong>
+                    </div>
+                    <div className="order-card-type">{g.servicioPrincipal.tipo_servicio_nombre ?? 'Servicio Técnico'}</div>
+                    {g.traslado && <div className="order-card-transfer"><Truck size={14} /> {g.traslado.descripcion_especifica ?? 'Traslado incluido'}</div>}
+                    <p className="order-card-description">{g.servicioPrincipal.descripcion_especifica || 'Sin descripción'}</p>
+                    {g.servicioObservado?.ultima_observacion && (
+                      <p className="order-card-observation"><strong>Observación:</strong> {g.servicioObservado.ultima_observacion}</p>
+                    )}
+                    <div className="order-card-actions">
+                      {puedeEditar && (
+                        <button type="button" onClick={() => handleEliminarOrden(g)} className="order-card-delete">
+                          <Trash2 size={14} /> Eliminar
+                        </button>
+                      )}
+                      {g.servicioObservado && (
+                        <button type="button" onClick={() => startCorrection(g.servicioObservado!)} className="order-card-correct">
+                          <Edit2 size={14} /> Corregir y reenviar
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ))}
               </div>
 
               <div style={{
@@ -565,24 +918,41 @@ export const TechnicianPortal = () => {
               Todavía no tienes cuentas radicadas en períodos anteriores.
             </div>
           ) : (
-            <div className="table-scroll table-wide">
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead style={{ borderBottom: '1px solid #eee' }}>
-                  <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                    <th style={{ padding: '16px 0', fontWeight: '500' }}>Mes</th>
-                    <th style={{ padding: '16px 0', fontWeight: '500' }}>Servicios</th>
-                    <th style={{ padding: '16px 0', fontWeight: '500' }}>Total</th>
-                    <th style={{ padding: '16px 0', fontWeight: '500' }}>Estado</th>
-                    <th style={{ padding: '16px 0', fontWeight: '500', textAlign: 'right' }}>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historialOtros.map((c) => (
-                    <HistoryRow key={c.id} cuenta={c} onDownload={handleDescargarHistorial} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="table-scroll table-wide desktop-only">
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead style={{ borderBottom: '1px solid #eee' }}>
+                    <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                      <th style={{ padding: '16px 0', fontWeight: '500' }}>Mes</th>
+                      <th style={{ padding: '16px 0', fontWeight: '500' }}>Servicios</th>
+                      <th style={{ padding: '16px 0', fontWeight: '500' }}>Total</th>
+                      <th style={{ padding: '16px 0', fontWeight: '500' }}>Estado</th>
+                      <th style={{ padding: '16px 0', fontWeight: '500', textAlign: 'right' }}>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historialOtros.map((c) => (
+                      <HistoryRow key={c.id} cuenta={c} onDownload={handleDescargarHistorial} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mobile-only history-cards">
+                {historialOtros.map((c) => (
+                  <article key={c.id} className="history-card">
+                    <div className="order-card-heading">
+                      <strong>{nombreMes(c.mes)} {c.anio}</strong>
+                      <strong>{formatCOP(c.total)}</strong>
+                    </div>
+                    <div className="history-card-meta">{c.total_servicios} servicios</div>
+                    <EstadoBadge estado={c.estado as EstadoServicio} />
+                    <button type="button" onClick={() => handleDescargarHistorial(c)} className="order-card-correct">
+                      Descargar PDF
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -592,14 +962,50 @@ export const TechnicianPortal = () => {
             open={showModal}
             onClose={closeModal}
             types={tipos}
+            recentOrders={ordenesRecientes}
+            existingOrders={ordenesExistentes}
+            currentServices={servicios}
             onCreateService={async (payload) => {
-              return technicianApi.createService(payload);
+              return createServiceWithOfflineSupport(payload);
             }}
             onCreateTransfer={async (payload) => {
-              const resp = await technicianApi.createTransfer(payload);
-              return { servicio: resp.servicio, valor_cobrado: resp.valor_cobrado };
+              return createTransferWithOfflineSupport(payload);
+            }}
+            onDeleteService={(id) => technicianApi.deleteService(id)}
+            onQuoteTransfer={async (payload) => {
+              const resp = await technicianApi.quoteTransfer(payload);
+              return Number(resp.valor_cobrado);
             }}
           />
+        )}
+        {editingService && (
+          <div className="correction-backdrop">
+            <form className="correction-modal" onSubmit={handleSaveCorrection}>
+              <div className="correction-heading">
+                <div>
+                  <h2>Corregir orden {getNumeroOrdenLimpio(editingService.numero_orden)}</h2>
+                  <p>Actualiza los datos indicados y envía el servicio a una nueva revisión.</p>
+                </div>
+                <button type="button" onClick={() => setEditingService(null)} aria-label="Cerrar corrección">×</button>
+              </div>
+              {editingService.ultima_observacion && (
+                <div className="correction-observation"><strong>Observación del administrador:</strong> {editingService.ultima_observacion}</div>
+              )}
+              <label>
+                Número de orden
+                <input value={correctionOrder} onChange={(event) => setCorrectionOrder(event.target.value.replace(/\D/g, '').slice(0, 5))} inputMode="numeric" maxLength={5} required />
+              </label>
+              <label>
+                Descripción del servicio
+                <textarea value={correctionDescription} onChange={(event) => setCorrectionDescription(event.target.value)} maxLength={2000} rows={5} required />
+              </label>
+              <p className="correction-help">Conserva la información de ayudante o puertas desmontadas si aparece en la descripción.</p>
+              <div className="correction-actions">
+                <button type="button" onClick={() => setEditingService(null)}>Cancelar</button>
+                <button type="submit" disabled={savingCorrection}>{savingCorrection ? 'Enviando…' : 'Enviar a nueva revisión'}</button>
+              </div>
+            </form>
+          </div>
         )}
       </div>
     </MainLayout>

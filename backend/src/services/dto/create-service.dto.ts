@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsOptional, Matches } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, MaxLength, ArrayMaxSize, Min } from 'class-validator';
 
 export class CreateServiceDto {
   @IsNotEmpty()
@@ -16,4 +16,40 @@ export class CreateServiceDto {
   @IsOptional()
   @IsString()
   descripcion_especifica?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(1_400_000, { each: true })
+  fotos?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(1_400_000, { each: true })
+  fotos_puertas?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(1_400_000, { each: true })
+  fotos_ayudante?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(4)
+  puertas_desmontadas?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  requiere_ayudante?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  motivo_ayudante?: string;
 }

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../../layouts/MainLayout';
-import { ClipboardCheck, RefreshCw } from 'lucide-react';
+import { ClipboardCheck, RefreshCw, ArrowRight, AlertCircle } from 'lucide-react';
 import { reviewApi, type DashboardSummary } from '../../services/adminApi';
 import { EstadoBadge } from '../../components/EstadoBadge';
 import { formatCOP, nombreMes } from '../../lib/period';
@@ -33,7 +33,7 @@ export const Dashboard = () => {
   const s = data?.servicios;
   const t = data?.tecnicos;
 
-  const porRevisar = (c?.pendientes ?? 0) + (c?.observadas ?? 0);
+  const porRevisar = (c?.pendientes ?? 0) + (c?.observadas ?? 0) + (c?.rechazadas ?? 0);
 
   return (
     <MainLayout>
@@ -129,6 +129,39 @@ export const Dashboard = () => {
             color="#ff3b30"
           />
         </div>
+
+        {/* Main Content Grid */}
+        <button
+          type="button"
+          onClick={() => navigate('/admin/review?estado=revision')}
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 18,
+            padding: '18px 22px',
+            marginBottom: 24,
+            borderRadius: 16,
+            border: '1px solid #fed7aa',
+            background: '#fff7ed',
+            color: '#7c2d12',
+            textAlign: 'left',
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <AlertCircle size={21} />
+            <span>
+              <strong style={{ display: 'block', fontSize: 16 }}>Cuentas que requieren revisión</strong>
+              <span style={{ display: 'block', marginTop: 3, fontSize: 13 }}>{loading ? 'Cargando cuentas pendientes y observadas…' : `${porRevisar} cuenta${porRevisar === 1 ? '' : 's'} pendiente${porRevisar === 1 ? '' : 's'}, observada${porRevisar === 1 ? '' : 's'} o rechazada${porRevisar === 1 ? '' : 's'}`}</span>
+            </span>
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            {loading ? '—' : porRevisar}
+            <ArrowRight size={17} />
+          </span>
+        </button>
 
         {/* Main Content Grid */}
         <div className="content-grid">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 type UserForm = {
   username: string;
@@ -6,6 +6,7 @@ type UserForm = {
   email: string;
   password: string;
   confirmPassword: string;
+  generatePassword: boolean;
   rol: 'Tecnico' | 'Admin';
   sede: 'Bucaramanga' | 'Cucuta';
 };
@@ -13,7 +14,7 @@ type UserForm = {
 type ModalApi = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (form: UserForm) => Promise<void>;
+  onSubmit: (form: UserForm) => Promise<{ generatedPassword?: string; created?: boolean } | void>;
   saving: boolean;
   error: string | null;
   success: boolean;
@@ -39,23 +40,51 @@ export const UserCreateModal = ({
     email: '',
     password: '',
     confirmPassword: '',
+    generatePassword: false,
     rol: 'Tecnico',
     sede: 'Bucaramanga',
   });
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [created, setCreated] = useState(false);
 
+  useEffect(() => {
+    if (!open) {
+      setGeneratedPassword('');
+      setCopied(false);
+      setCreated(false);
+      setForm({
+        username: '',
+        nombre_completo: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        generatePassword: false,
+        rol: 'Tecnico',
+        sede: 'Bucaramanga',
+      });
+    }
+  }, [open]);
   if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) {
+    if (!form.generatePassword && form.password !== form.confirmPassword) {
       // El caller gestiona el error externo si lo desea; dejamos que lo maneje.
       return;
     }
     try {
-      await onSubmit(form);
+      const result = await onSubmit(form);
+      if (result && result.generatedPassword) setGeneratedPassword(result.generatedPassword);
+      if (result && result.created) setCreated(true);
     } catch {
       // El caller debería setear error externo; si no, lo dejamos pasar.
     }
+  };
+
+  const copyPassword = async () => {
+    await navigator.clipboard.writeText(generatedPassword);
+    setCopied(true);
   };
 
   return (
@@ -117,7 +146,26 @@ export const UserCreateModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {generatedPassword ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '14px', borderRadius: '12px', background: '#ecfdf3', color: '#166534', fontSize: '14px' }}>
+              Usuario creado. Copia esta contraseña y compártela con el usuario; no volverá a mostrarse.
+            </div>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              Contraseña generada
+              <input readOnly value={generatedPassword} style={{ ...credentialInputStyle, marginTop: '6px' }} />
+            </label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button type="button" onClick={copyPassword} style={buttonStyle}>{copied ? 'Copiada' : 'Copiar contraseña'}</button>
+              <button type="button" onClick={onClose} style={{ ...buttonStyle, background: 'var(--blue)', color: 'white' }}>Listo</button>
+            </div>
+          </div>
+        ) : created ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ padding: '14px', borderRadius: '12px', background: '#ecfdf3', color: '#166534', fontSize: '14px' }}>Usuario creado correctamente.</div>
+            <button type="button" onClick={onClose} style={{ ...buttonStyle, background: 'var(--blue)', color: 'white' }}>Listo</button>
+          </div>
+        ) : <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '10px' }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Nombre de usuario</label>
@@ -222,12 +270,22 @@ export const UserCreateModal = ({
             />
           </div>
 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13px', color: 'var(--ink)' }}>
+            <input
+              type="checkbox"
+              checked={form.generatePassword}
+              onChange={(e) => setForm({ ...form, generatePassword: e.target.checked, password: '', confirmPassword: '' })}
+            />
+            Generar contraseña aleatoria (se mostrará una sola vez)
+          </label>
+
           <div>
             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Contraseña</label>
             <input
               type="password"
-              required
-              minLength={4}
+              required={!form.generatePassword}
+              minLength={form.generatePassword ? undefined : 4}
+              disabled={form.generatePassword}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               style={{
@@ -236,13 +294,13 @@ export const UserCreateModal = ({
                 border: '1px solid rgba(0,0,0,0.1)',
                 fontSize: '15px',
                 outline: 'none',
-                background: 'rgba(255,255,255,0.85)',
+                background: form.generatePassword ? '#f1f5f9' : 'rgba(255,255,255,0.85)',
                 width: '100%',
               }}
             />
           </div>
 
-          <div>
+          {!form.generatePassword && <div>
             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Confirmar contraseña</label>
             <input
               type="password"
@@ -260,7 +318,7 @@ export const UserCreateModal = ({
                 width: '100%',
               }}
             />
-          </div>
+          </div>}
 
           {error && (
             <div
@@ -298,7 +356,7 @@ export const UserCreateModal = ({
             </button>
             <button
               type="submit"
-              disabled={saving || form.password !== form.confirmPassword}
+              disabled={saving || (!form.generatePassword && form.password !== form.confirmPassword)}
               style={{
                 flex: 1,
                 padding: '11px',
@@ -310,15 +368,36 @@ export const UserCreateModal = ({
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '14px',
-                cursor: saving || form.password !== form.confirmPassword ? 'not-allowed' : 'pointer',
+                cursor: saving || (!form.generatePassword && form.password !== form.confirmPassword) ? 'not-allowed' : 'pointer',
                 boxShadow: '0 4px 10px rgba(0,87,184,0.25)',
               }}
             >
               {saving ? 'Guardando…' : 'Crear usuario'}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
     </div>
   );
+};
+
+const credentialInputStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  padding: '12px',
+  border: '1px solid #cbd5e1',
+  borderRadius: '9px',
+  color: 'var(--ink)',
+  fontSize: '16px',
+};
+
+const buttonStyle: React.CSSProperties = {
+  flex: 1,
+  padding: '11px',
+  borderRadius: '11px',
+  border: '1px solid rgba(0,0,0,0.12)',
+  background: 'white',
+  color: 'var(--ink)',
+  fontWeight: 600,
+  cursor: 'pointer',
 };

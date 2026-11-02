@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { AdminService, type EstadoServicio } from './admin.service';
+import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -105,10 +106,45 @@ export class AdminController {
     nombre_completo: string;
     email: string;
     password: string;
+    generate_password?: boolean;
     rol: 'Tecnico' | 'Admin';
     sede?: string;
   }) {
     return this.adminService.createUser(data);
+  }
+
+  @Get('users/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin')
+  async getUser(@Param('id') id: string) {
+    return this.adminService.getUserById(id);
+  }
+
+  @Patch('users/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() body: { username?: string; nombre_completo?: string; email?: string; sede?: string | null },
+  ) {
+    return this.adminService.updateUser(id, body);
+  }
+
+  @Post('users/:id/reset-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin')
+  async resetUserPassword(@Param('id') id: string) {
+    return this.adminService.resetUserPassword(id);
+  }
+
+  @Patch('users/:id/password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin')
+  async updateUserPassword(
+    @Param('id') id: string,
+    @Body() body: UpdateUserPasswordDto,
+  ) {
+    return this.adminService.updateUserPassword(id, body.password);
   }
 
   @Patch('users/:id/role')
@@ -119,14 +155,14 @@ export class AdminController {
     @Param('id') id: string,
     @Body() body: { rol: 'Tecnico' | 'Admin' },
   ) {
-    return this.adminService.updateUserRole(id, body.rol);
+    return this.adminService.updateUserRole(id, body.rol, req.user!.id);
   }
 
   @Post('users/:id/toggle-active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin')
-  async toggleActive(@Request() req: any, @Param('id') id: string) {
-    return this.adminService.toggleUserActive(id);
+  async toggleActive(@Request() req: any, @Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.adminService.toggleUserActive(id, body.reason, req.user!.id);
   }
 
   @Delete('users/:id')
