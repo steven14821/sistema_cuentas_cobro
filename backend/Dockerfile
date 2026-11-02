@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Instalar dependencias y generar cliente de Prisma
-RUN npm install
+RUN npm ci
 RUN npx prisma generate
 
 # Copiar resto del código y compilar
@@ -19,6 +19,7 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+ENV PORT=80
 
 # Copiar solo lo necesario desde el builder
 COPY --from=builder /app/package*.json ./

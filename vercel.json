@@ -3,8 +3,8 @@
   "services": {
     "backend": {
       "root": "backend",
-      "framework": "nestjs",
-      "buildCommand": "npx prisma generate && npm run build"
+      "runtime": "container",
+      "entrypoint": "Dockerfile"
     },
     "frontend": {
       "root": "frontend",
