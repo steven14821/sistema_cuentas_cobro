@@ -13,6 +13,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "seed:tariffs": "npm run build && node dist/seed-tariffs.js",
     "lint": "oxlint src/",
     "test": "vitest run",
     "test:watch": "vitest",

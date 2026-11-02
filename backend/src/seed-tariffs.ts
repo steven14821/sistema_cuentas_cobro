@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
@@ -101,6 +103,12 @@ async function bootstrap() {
     { nombre: 'HISENSE: Cambio de compresor', valor: 90000 },
     { nombre: 'HISENSE: Cambio de parte aires', valor: 35000 },
 
+    // Diagnóstico de TV disponible para todas las marcas.
+    ...(['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => ({
+      nombre: `${marca}: Diagnóstico TV`,
+      valor: 10000,
+    })),
+
     // Hyundai y TCL: catálogo exclusivo para TV, con las tarifas Samsung actuales.
     ...(['HYUNDAI', 'TCL'] as const).flatMap((marca) =>
       [
@@ -143,7 +151,10 @@ async function bootstrap() {
   for (const t of tariffs) {
     await prisma.tipos_servicio.upsert({
       where: { nombre: t.nombre },
-      update: { valor_estandar: t.valor },
+      update: {
+        valor_estandar: t.valor,
+        ...(t.nombre.endsWith(': Diagnóstico TV') ? { activo: true } : {}),
+      },
       create: {
         nombre: t.nombre,
         valor_estandar: t.valor,
