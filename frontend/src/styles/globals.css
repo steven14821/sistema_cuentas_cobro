@@ -73,6 +73,21 @@ body {
   min-width: 780px;
 }
 
+@media (min-width: 769px) {
+  .table-scroll th,
+  .table-scroll td {
+    padding-inline: 14px !important;
+  }
+
+  .table-scroll td:last-child > div {
+    gap: 10px !important;
+  }
+
+  .table-scroll td:last-child > button + button {
+    margin-inline-start: 8px;
+  }
+}
+
 .mobile-only {
   display: none;
 }
