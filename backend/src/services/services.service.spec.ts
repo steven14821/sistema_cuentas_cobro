@@ -20,7 +20,9 @@ function makePrisma() {
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
       count: vi.fn(),
     },
     usuarios: { findUnique: vi.fn() },
@@ -56,6 +58,41 @@ describe('ServicesService', () => {
   });
 
   describe('createService — ventana de carga (días 1-5, UTC-5)', () => {
+    it('permite agregar servicios a una cuenta devuelta aunque la ventana esté cerrada', async () => {
+      vi.setSystemTime(new Date('2026-10-10T15:00:00Z'));
+      prisma.cuentas_cobro.findUnique.mockResolvedValue({
+        id: 'cuenta-1',
+        usuario_id: 'u1',
+        estado: 'Observado',
+        radicada: true,
+      });
+      prisma.tipos_servicio.findUnique.mockResolvedValue(TIPO);
+      prisma.usuarios.findUnique.mockResolvedValue({ sede: 'Bucaramanga' });
+      prisma.servicios.findFirst.mockResolvedValue(null);
+      prisma.servicios.create.mockResolvedValue({
+        id: 's1',
+        cuenta_cobro_id: 'cuenta-1',
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: 'BUC-12345',
+        descripcion_especifica: 'Servicio',
+        valor_cobrado: 50_000,
+        estado: 'Observado',
+        fotos: [],
+        tipos_servicio: TIPO,
+      });
+
+      await service.createService('u1', {
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: '12345',
+        descripcion_especifica: 'Servicio',
+      });
+
+      expect(prisma.excepciones_carga.findFirst).not.toHaveBeenCalled();
+      expect(prisma.servicios.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ estado: 'Observado' }),
+      }));
+    });
+
     it('el día 5 permite registrar y guarda el MES ANTERIOR con el valor del tipo', async () => {
       // 2026-10-05T15:00:00Z => 10:00 en Colombia (día 5, ventana abierta)
       vi.setSystemTime(new Date('2026-10-05T15:00:00Z'));
@@ -360,6 +397,40 @@ describe('ServicesService', () => {
     });
 
     describe('updateService — corrección de órdenes', () => {
+      it('permite editar cualquier servicio mientras toda la cuenta está en corrección', async () => {
+        prisma.servicios.findUnique.mockResolvedValue({
+          id: 's1',
+          cuenta_cobro_id: 'cuenta-1',
+          tipo_servicio_id: 'tipo-1',
+          numero_orden: 'BUC-12345',
+          descripcion_especifica: 'Servicio observado',
+          valor_cobrado: 50_000,
+          estado: 'Aprobado',
+          cuentas_cobro: { usuario_id: 'u1', radicada: true, estado: 'Observado' },
+        });
+        prisma.servicios.findFirst.mockResolvedValue(null);
+        prisma.servicios.update.mockResolvedValue({
+          id: 's1',
+          cuenta_cobro_id: 'cuenta-1',
+          tipo_servicio_id: 'tipo-1',
+          numero_orden: 'BUC-54321',
+          descripcion_especifica: 'Servicio corregido',
+          valor_cobrado: 50_000,
+          estado: 'Observado',
+          tipos_servicio: TIPO,
+        });
+
+        await service.updateService('u1', 's1', {
+          numero_orden: '54321',
+          descripcion_especifica: 'Servicio corregido',
+        });
+
+        expect(prisma.servicios.update).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ estado: 'Aprobado', numero_orden: 'BUC-54321' }),
+        }));
+        expect(prisma.servicios.findMany).not.toHaveBeenCalled();
+      });
+
       it('conserva el prefijo del servicio y devuelve la cuenta a pendiente', async () => {
         const current = {
           id: 's1',
@@ -564,6 +635,43 @@ describe('ServicesService', () => {
   });
 
   describe('deleteService', () => {
+    it('elimina la orden y su traslado durante la corrección, conservando al menos otra orden', async () => {
+      prisma.servicios.findUnique.mockResolvedValue({
+        id: 's1',
+        cuenta_cobro_id: 'cuenta-1',
+        numero_orden: 'BUC-12345',
+        cuentas_cobro: { usuario_id: 'u1', radicada: true, estado: 'Observado' },
+      });
+      prisma.servicios.findMany.mockResolvedValue([
+        { id: 's1', numero_orden: 'BUC-12345' },
+        { id: 's2', numero_orden: 'T-BUC-12345' },
+        { id: 's3', numero_orden: 'BUC-54321' },
+      ]);
+      prisma.servicios.deleteMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.deleteService('u1', 's1');
+
+      expect(prisma.servicios.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['s1', 's2'] }, cuenta_cobro_id: 'cuenta-1' },
+      });
+      expect(result).toEqual({ deleted: true, cuentaEliminada: false });
+    });
+
+    it('impide eliminar la última orden de una cuenta en corrección', async () => {
+      prisma.servicios.findUnique.mockResolvedValue({
+        id: 's1',
+        cuenta_cobro_id: 'cuenta-1',
+        numero_orden: 'BUC-12345',
+        cuentas_cobro: { usuario_id: 'u1', radicada: true, estado: 'Observado' },
+      });
+      prisma.servicios.findMany.mockResolvedValue([
+        { id: 's1', numero_orden: 'BUC-12345' },
+      ]);
+
+      await expect(service.deleteService('u1', 's1')).rejects.toThrow('al menos una orden');
+      expect(prisma.servicios.deleteMany).not.toHaveBeenCalled();
+    });
+
     it('no permite borrar un servicio de otra cuenta', async () => {
       prisma.servicios.findUnique.mockResolvedValue({
         id: 's1',
@@ -593,6 +701,34 @@ describe('ServicesService', () => {
         where: { id: 'cuenta-1' },
       });
       expect(res.cuentaEliminada).toBe(true);
+    });
+  });
+
+  describe('submitAccountCorrection', () => {
+    it('devuelve los servicios y la cuenta a pendiente para una nueva revisión', async () => {
+      prisma.cuentas_cobro.findFirst.mockResolvedValue({
+        id: 'cuenta-1',
+        usuario_id: 'u1',
+        radicada: true,
+        estado: 'Observado',
+        servicios: [{ id: 's1' }],
+      });
+
+      const result = await service.submitAccountCorrection('u1', 'cuenta-1');
+
+      expect(prisma.servicios.updateMany).toHaveBeenCalledWith({
+        where: { cuenta_cobro_id: 'cuenta-1' },
+        data: expect.objectContaining({ estado: 'Pendiente' }),
+      });
+      expect(prisma.cuentas_cobro.update).toHaveBeenCalledWith({
+        where: { id: 'cuenta-1' },
+        data: expect.objectContaining({
+          estado: 'Pendiente',
+          firma_tecnico: null,
+          fecha_firma: null,
+        }),
+      });
+      expect(result).toEqual({ id: 'cuenta-1', estado: 'Pendiente', radicada: true });
     });
   });
 });

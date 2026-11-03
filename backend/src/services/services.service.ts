@@ -53,12 +53,17 @@ export class ServicesService {
       tipo_servicio_nombre: servicio.tipos_servicio?.nombre ?? null,
       numero_orden: servicio.numero_orden,
       descripcion_especifica: servicio.descripcion_especifica,
+      fotos: servicio.fotos ?? [],
       valor_cobrado: Number(servicio.valor_cobrado),
       estado: servicio.estado,
       ultima_observacion: servicio.auditoria_servicios?.[0]?.observacion || null,
       created_at: servicio.created_at,
       updated_at: servicio.updated_at,
     };
+  }
+
+  private isCorrectionAccount(cuenta: { radicada: boolean; estado?: string | null }) {
+    return cuenta.radicada && ['Observado', 'Rechazado'].includes(cuenta.estado ?? '');
   }
 
   private serializeCuenta(cuenta: any) {
@@ -95,7 +100,18 @@ export class ServicesService {
   // ---- API del técnico ----
 
   async createService(usuarioId: string, dto: CreateServiceDto) {
-    await this.assertVentanaAbierta(usuarioId);
+    const periodo = getPeriodoARadicar(getColombiaToday());
+    let cuenta = await this.prisma.cuentas_cobro.findUnique({
+      where: {
+        usuario_id_mes_anio: {
+          usuario_id: usuarioId,
+          mes: periodo.mes,
+          anio: periodo.anio,
+        },
+      },
+    });
+    const isCorrection = !!cuenta && this.isCorrectionAccount(cuenta);
+    if (!isCorrection) await this.assertVentanaAbierta(usuarioId);
 
     const tipo = await this.prisma.tipos_servicio.findUnique({
       where: { id: dto.tipo_servicio_id },
@@ -173,19 +189,7 @@ export class ServicesService {
       detallesRecoleccion.length ? `Recolección: ${detallesRecoleccion.join(', ')}` : null,
     ].filter(Boolean).join(' | ') || null;
 
-    const periodo = getPeriodoARadicar(getColombiaToday());
-
-    let cuenta = await this.prisma.cuentas_cobro.findUnique({
-      where: {
-        usuario_id_mes_anio: {
-          usuario_id: usuarioId,
-          mes: periodo.mes,
-          anio: periodo.anio,
-        },
-      },
-    });
-
-    if (cuenta?.radicada) {
+    if (cuenta?.radicada && !isCorrection) {
       throw new BadRequestException(
         'La cuenta de este período ya fue radicada y no admite cambios.',
       );
@@ -229,7 +233,7 @@ export class ServicesService {
         descripcion_especifica: descripcion,
         fotos,
         valor_cobrado: Number(tipo.valor_estandar) + valorAdicional,
-        estado: 'Pendiente',
+        estado: isCorrection ? 'Observado' : 'Pendiente',
       },
       include: { tipos_servicio: true },
     });
@@ -299,8 +303,6 @@ export class ServicesService {
     dto: CreateTransferDto,
     currentServices: { id: string; valor_cobrado: number; tipo_servicio_id: string }[] = [],
   ) {
-    await this.assertVentanaAbierta(usuarioId);
-
     const periodo = getPeriodoARadicar(getColombiaToday());
 
     let cuenta = await this.prisma.cuentas_cobro.findUnique({
@@ -318,9 +320,11 @@ export class ServicesService {
         'No se ha creado una cuenta para este período.',
       );
     }
-    if (cuenta.radicada) {
+    const isCorrection = this.isCorrectionAccount(cuenta);
+    if (cuenta.radicada && !isCorrection) {
       throw new BadRequestException('La cuenta ya fue radicada.');
     }
+    if (!isCorrection) await this.assertVentanaAbierta(usuarioId);
 
     const { calculatedValue, isCucuta } = await this.calculateTransfer(
       usuarioId,
@@ -357,7 +361,7 @@ export class ServicesService {
         numero_orden: numeroOrden,
         descripcion_especifica: dto.descripcion_especifica ?? null,
         valor_cobrado: calculatedValue,
-        estado: 'Pendiente',
+        estado: isCorrection ? 'Observado' : 'Pendiente',
       },
       include: { tipos_servicio: true },
     });
@@ -382,10 +386,37 @@ export class ServicesService {
         'No puedes eliminar un servicio de otra cuenta.',
       );
     }
-    if (servicio.cuentas_cobro.radicada) {
+    const isCorrection = this.isCorrectionAccount(servicio.cuentas_cobro);
+    if (servicio.cuentas_cobro.radicada && !isCorrection) {
       throw new BadRequestException(
         'La cuenta ya fue radicada; no se pueden eliminar servicios.',
       );
+    }
+
+    if (isCorrection) {
+      const ordenes = await this.prisma.servicios.findMany({
+        where: { cuenta_cobro_id: servicio.cuenta_cobro_id },
+        select: { id: true, numero_orden: true },
+      });
+      const numeroOrden = servicio.numero_orden.replace(/^(T-)?(BUC|CUC)-/i, '');
+      const idsOrden = ordenes
+        .filter((orden: { numero_orden: string }) =>
+          orden.numero_orden.replace(/^(T-)?(BUC|CUC)-/i, '') === numeroOrden,
+        )
+        .map((orden: { id: string }) => orden.id);
+      const otrasOrdenes = ordenes.filter((orden: { id: string; numero_orden: string }) =>
+        !idsOrden.includes(orden.id) && !orden.numero_orden.startsWith('T-'),
+      );
+      if (servicio.numero_orden.startsWith('T-') && !otrasOrdenes.length) {
+        throw new BadRequestException('La cuenta debe conservar al menos una orden de servicio.');
+      }
+      if (!servicio.numero_orden.startsWith('T-') && !otrasOrdenes.length) {
+        throw new BadRequestException('La cuenta debe conservar al menos una orden de servicio.');
+      }
+      await this.prisma.servicios.deleteMany({
+        where: { id: { in: idsOrden }, cuenta_cobro_id: servicio.cuenta_cobro_id },
+      });
+      return { deleted: true, cuentaEliminada: false };
     }
 
     await this.assertVentanaAbierta(usuarioId);
@@ -422,9 +453,10 @@ export class ServicesService {
     // Solo se permite editar si la cuenta NO está radicada,
     // O si el servicio está en estado 'Rechazado' u 'Observado'.
     const isRadicada = servicio.cuentas_cobro.radicada;
+    const isCorrection = this.isCorrectionAccount(servicio.cuentas_cobro);
     const isEditableState = ['Rechazado', 'Observado'].includes(servicio.estado as string);
 
-    if (isRadicada && !isEditableState) {
+    if (isRadicada && !isEditableState && !isCorrection) {
       throw new BadRequestException('Solo puedes editar servicios rechazados u observados una vez radicada la cuenta.');
     }
 
@@ -450,17 +482,135 @@ export class ServicesService {
       }
     }
 
+    const esTraslado = servicio.numero_orden.startsWith('T-');
+    let tipo = null;
+    if (dto.tipo_servicio_id !== undefined) {
+      tipo = await this.prisma.tipos_servicio.findUnique({
+        where: { id: dto.tipo_servicio_id },
+      });
+      if (!tipo || !tipo.activo) {
+        throw new BadRequestException('El tipo de servicio no existe o está inactivo.');
+      }
+    }
+
+    let descripcion: string | null | undefined = dto.descripcion_especifica;
+    let fotos = dto.fotos;
+    let valorCobrado: number | undefined;
+    if (esTraslado && (tipo || dto.destino !== undefined || dto.transporte !== undefined)) {
+      const tipoTraslado = tipo ?? await this.prisma.tipos_servicio.findUnique({
+        where: { id: servicio.tipo_servicio_id },
+      });
+      if (!tipoTraslado || !tipoTraslado.activo) {
+        throw new BadRequestException('El tipo de traslado no existe o está inactivo.');
+      }
+      if (!dto.destino || !dto.transporte) {
+        throw new BadRequestException('Selecciona el destino y el medio de transporte del traslado.');
+      }
+      const otrosServicios = await this.prisma.servicios.findMany({
+        where: {
+          cuenta_cobro_id: servicio.cuenta_cobro_id,
+          id: { not: servicioId },
+        },
+        select: { id: true, valor_cobrado: true, tipo_servicio_id: true },
+      });
+      const { calculatedValue } = await this.calculateTransfer(
+        usuarioId,
+        {
+          tipo_servicio_id: tipoTraslado.id,
+          numero_orden: dto.numero_orden ?? servicio.numero_orden,
+          destino: dto.destino,
+          transporte: dto.transporte,
+          descripcion_especifica: dto.descripcion_especifica,
+        },
+        otrosServicios.map((item: { id: string; valor_cobrado: unknown; tipo_servicio_id: string }) => ({
+          id: item.id,
+          valor_cobrado: Number(item.valor_cobrado),
+          tipo_servicio_id: item.tipo_servicio_id,
+        })),
+      );
+      valorCobrado = calculatedValue;
+    } else if (!esTraslado && (tipo || dto.puertas_desmontadas !== undefined || dto.requiere_ayudante !== undefined || dto.fotos !== undefined)) {
+      const tipoServicio = tipo ?? await this.prisma.tipos_servicio.findUnique({
+        where: { id: servicio.tipo_servicio_id },
+      });
+      if (!tipoServicio || !tipoServicio.activo) {
+        throw new BadRequestException('El tipo de servicio no existe o está inactivo.');
+      }
+      const nombreNormalizado = tipoServicio.nombre
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      const esRecoleccion = /recoleccion|recogida/.test(nombreNormalizado);
+      const incluyeAyudante = esRecoleccion && nombreNormalizado.includes('incluye ayudante');
+      const esNevecon = esRecoleccion && nombreNormalizado.includes('nevecon');
+      const puertasDesmontadas = esNevecon ? (dto.puertas_desmontadas ?? 0) : 0;
+      const requiereAyudante = esRecoleccion && !incluyeAyudante && (dto.requiere_ayudante ?? false);
+      fotos = dto.fotos ?? servicio.fotos;
+      if (
+        fotos.length > 10 ||
+        fotos.some((foto: string) =>
+          !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(foto) ||
+          foto.length > 1_400_000,
+        )
+      ) {
+        throw new BadRequestException('Las fotos deben ser imágenes JPG, PNG o WebP de máximo 1 MB cada una (hasta 10).');
+      }
+      if (puertasDesmontadas > 0 && fotos.length === 0) {
+        throw new BadRequestException('Agrega al menos una foto de las puertas desmontadas.');
+      }
+      if (requiereAyudante && fotos.length === 0) {
+        throw new BadRequestException('Agrega al menos una foto del motivo por el que necesitaste ayudante.');
+      }
+      if (requiereAyudante && !dto.motivo_ayudante?.trim() &&
+          !/Ayudante: sí \(motivo: .+?, fotos del motivo: \d+\)/.test(servicio.descripcion_especifica ?? '')) {
+        throw new BadRequestException('Describe por qué necesitaste ayudante.');
+      }
+      const descripcionBase = (dto.descripcion_especifica ?? servicio.descripcion_especifica ?? '')
+        .replace(/\s*\|\s*Recolección:.*$/i, '')
+        .trim();
+      const detalles: string[] = [];
+      if (puertasDesmontadas > 0) {
+        detalles.push(`Puertas desmontadas: ${puertasDesmontadas} (fotos: ${fotos.length})`);
+      }
+      if (requiereAyudante) {
+        const motivo = dto.motivo_ayudante?.trim() ??
+          servicio.descripcion_especifica?.match(/Ayudante: sí \(motivo: (.+?), fotos del motivo:/)?.[1];
+        if (!motivo) throw new BadRequestException('Describe por qué necesitaste ayudante.');
+        detalles.push(`Ayudante: sí (motivo: ${motivo}, fotos del motivo: ${fotos.length})`);
+      }
+      descripcion = [
+        descripcionBase,
+        detalles.length ? `Recolección: ${detalles.join(', ')}` : null,
+      ].filter(Boolean).join(' | ') || null;
+      valorCobrado = Number(tipoServicio.valor_estandar) + puertasDesmontadas * 10_000 + (requiereAyudante ? 10_000 : 0);
+    }
+
+    if (esTraslado && fotos !== undefined && (
+      fotos.length > 10 ||
+      fotos.some((foto) =>
+        !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(foto) ||
+        foto.length > 1_400_000,
+      )
+    )) {
+      throw new BadRequestException('Las fotos deben ser imágenes JPG, PNG o WebP de máximo 1 MB cada una (hasta 10).');
+    }
+
     const updated = await this.prisma.servicios.update({
       where: { id: servicioId },
       data: {
         tipo_servicio_id: dto.tipo_servicio_id,
         numero_orden: numeroOrdenActualizado,
-        descripcion_especifica: dto.descripcion_especifica,
+        descripcion_especifica: descripcion,
+        ...(fotos !== undefined ? { fotos } : {}),
+        ...(valorCobrado !== undefined ? { valor_cobrado: valorCobrado } : {}),
         updated_at: new Date(),
         // Al editar un servicio rechazado/observado, vuelve a 'Pendiente' para que el admin lo revise de nuevo.
-        estado: isEditableState ? 'Pendiente' : servicio.estado,
+        estado: isCorrection ? servicio.estado : isEditableState ? 'Pendiente' : servicio.estado,
       },
+      include: { tipos_servicio: true },
     });
+
+    if (isCorrection) return this.serializeServicio(updated);
 
     const estados = await this.prisma.servicios.findMany({
       where: { cuenta_cobro_id: updated.cuenta_cobro_id },
@@ -481,6 +631,38 @@ export class ServicesService {
     }
 
     return this.serializeServicio(updated);
+  }
+
+  async submitAccountCorrection(usuarioId: string, cuentaId: string) {
+    const cuenta = await this.prisma.cuentas_cobro.findFirst({
+      where: { id: cuentaId, usuario_id: usuarioId },
+      include: { servicios: true },
+    });
+    if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+    if (!this.isCorrectionAccount(cuenta)) {
+      throw new BadRequestException('La cuenta no está habilitada para correcciones.');
+    }
+    if (cuenta.servicios.length === 0) {
+      throw new BadRequestException('Agrega al menos una orden antes de enviar la cuenta a revisión.');
+    }
+
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.servicios.updateMany({
+        where: { cuenta_cobro_id: cuentaId },
+        data: { estado: 'Pendiente', updated_at: new Date() },
+      });
+      await tx.cuentas_cobro.update({
+        where: { id: cuentaId },
+        data: {
+          estado: 'Pendiente',
+          fecha_aprobacion: null,
+          firma_tecnico: null,
+          fecha_firma: null,
+        },
+      });
+    });
+
+    return { id: cuentaId, estado: 'Pendiente', radicada: true };
   }
 
   async getMyAccount(usuarioId: string) {

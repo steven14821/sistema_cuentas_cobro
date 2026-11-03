@@ -15,6 +15,18 @@ export interface ServiceApi {
   updated_at?: string | null;
 }
 
+export interface UpdateServicePayload {
+  tipo_servicio_id?: string;
+  numero_orden?: string;
+  descripcion_especifica?: string;
+  fotos?: string[];
+  puertas_desmontadas?: number;
+  requiere_ayudante?: boolean;
+  motivo_ayudante?: string;
+  destino?: string;
+  transporte?: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
+}
+
 export interface TipoServicioApi {
   id: string;
   nombre: string;
@@ -123,13 +135,15 @@ export const technicianApi = {
     body: payload,
   }),
 
-  updateService: (id: string, payload: {
-    numero_orden?: string;
-    descripcion_especifica?: string;
-  }) => apiFetch<ServiceApi>(`/services/${id}`, {
+  updateService: (id: string, payload: UpdateServicePayload) => apiFetch<ServiceApi>(`/services/${id}`, {
     method: 'PATCH',
     body: payload,
   }),
+
+  submitCorrection: (id: string) =>
+    apiFetch<{ id: string; estado: string; radicada: boolean }>(`/services/my-accounts/${id}/correction/submit`, {
+      method: 'POST',
+    }),
 
   deleteService: (id: string) => apiFetch<{ deleted: boolean; cuentaEliminada: boolean }>(`/services/${id}`, {
     method: 'DELETE',

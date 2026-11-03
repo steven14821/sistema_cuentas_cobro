@@ -56,6 +56,13 @@ export class ServicesController {
     return this.servicesService.signAccount(req.user!.id, id, dto.firma_tecnico);
   }
 
+  @Post('my-accounts/:id/correction/submit')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Tecnico')
+  async submitAccountCorrection(@Request() req: any, @Param('id') id: string) {
+    return this.servicesService.submitAccountCorrection(req.user!.id, id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Tecnico')
@@ -76,10 +83,14 @@ export class ServicesController {
         'No hay una cuenta de cobro abierta para este período.',
       );
     }
-    const pendingServices = account.cuenta.servicios.filter(
-      (service: { estado?: string | null }) =>
-        !['Aprobado', 'Observado', 'Rechazado'].includes(service.estado ?? ''),
-    );
+    const isCorrection = account.cuenta.radicada &&
+      ['Observado', 'Rechazado'].includes(account.cuenta.estado ?? '');
+    const pendingServices = isCorrection
+      ? account.cuenta.servicios
+      : account.cuenta.servicios.filter(
+          (service: { estado?: string | null }) =>
+            !['Aprobado', 'Observado', 'Rechazado'].includes(service.estado ?? ''),
+        );
     return this.servicesService.quoteTransfer(req.user!.id, dto, pendingServices);
   }
 
@@ -98,10 +109,14 @@ export class ServicesController {
       );
     }
 
-    const pendingServices = account.cuenta.servicios.filter(
-      (s: { estado?: string | null }) =>
-        !['Aprobado', 'Observado', 'Rechazado'].includes(s.estado ?? ''),
-    );
+    const isCorrection = account.cuenta.radicada &&
+      ['Observado', 'Rechazado'].includes(account.cuenta.estado ?? '');
+    const pendingServices = isCorrection
+      ? account.cuenta.servicios
+      : account.cuenta.servicios.filter(
+          (s: { estado?: string | null }) =>
+            !['Aprobado', 'Observado', 'Rechazado'].includes(s.estado ?? ''),
+        );
 
     return this.servicesService.createTransfer(
       req.user!.id,

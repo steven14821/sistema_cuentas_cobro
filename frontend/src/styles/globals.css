@@ -781,7 +781,8 @@ body {
 }
 
 .correction-modal input,
-.correction-modal textarea {
+.correction-modal textarea,
+.correction-modal select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #cbd5e1;
@@ -793,6 +794,60 @@ body {
 
 .correction-modal textarea {
   resize: vertical;
+}
+
+.account-correction-notice {
+  max-width: 430px;
+  padding: 10px 13px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.correction-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.correction-photos > div {
+  position: relative;
+}
+
+.correction-photos img {
+  width: 68px;
+  height: 68px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.correction-photos button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: #b91c1c;
+  color: white;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.correction-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
 }
 
 .correction-actions {

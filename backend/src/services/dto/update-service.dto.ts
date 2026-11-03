@@ -1,4 +1,16 @@
-import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateServiceDto {
   @IsOptional()
@@ -16,4 +28,35 @@ export class UpdateServiceDto {
   @IsString()
   @MaxLength(2000)
   descripcion_especifica?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(1_400_000, { each: true })
+  fotos?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(4)
+  puertas_desmontadas?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  requiere_ayudante?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  motivo_ayudante?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z0-9_-]+$/)
+  destino?: string;
+
+  @IsOptional()
+  @IsIn(['MOTO_PROPIA', 'VEHICULO_EMPRESA'])
+  transporte?: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
 }

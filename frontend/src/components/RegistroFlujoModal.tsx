@@ -21,7 +21,7 @@ export interface TipoServicioOption {
 }
 
 // Catálogo de destinos por sede y su tarifa fija directa
-const lugaresBucaramanga = [
+export const lugaresBucaramanga = [
   { id: 'PIEDECUESA', nombre: 'Piedecuesta', valor: 6000, dbNombre: 'TRASLADO: Piedecuesta' },
   { id: 'GIRON', nombre: 'Girón', valor: 3000, dbNombre: 'TRASLADO: Giron' },
   { id: 'LEBRIJA', nombre: 'Lebrija', valor: 8000, dbNombre: 'TRASLADO: Lebrija' },
@@ -36,7 +36,7 @@ const lugaresBucaramanga = [
   { id: 'SAN_VICENTE', nombre: 'San Vicente', valor: 75000, dbNombre: 'TRASLADO: San Vicente' },
 ] as const;
 
-const lugaresCucuta = [
+export const lugaresCucuta = [
   { id: 'PATIOS', nombre: 'Patios', valor: 4000, dbNombre: 'TRASLADO CUC: Patios' },
   { id: 'VILLA_DEL_ROSARIO', nombre: 'Villa del Rosario', valor: 4000, dbNombre: 'TRASLADO CUC: Villa del Rosario' },
   { id: 'ZULIA', nombre: 'Zulia', valor: 8000, dbNombre: 'TRASLADO CUC: Zulia' },
@@ -54,6 +54,11 @@ const tipoVehiculoLabel: Record<TransportType, string> = {
 };
 
 const marcasDisponibles: MarcaOption[] = ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'];
+
+function requiereTraslado(tipoNombre: string): boolean {
+  const nombre = tipoNombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return !/carry[\s-]*in/.test(nombre) && !nombre.includes('instalacion');
+}
 
 export const RegistroFlujoModal = ({
   open,
@@ -461,6 +466,16 @@ export const RegistroFlujoModal = ({
         ...(requiereAyudante ? { motivo_ayudante: motivoAyudante.trim() } : {}),
       });
       const tipo = types.find((t) => t.id === tipoId);
+      if (tipo && !requiereTraslado(tipo.nombre)) {
+        setDraftReady(false);
+        if (user?.id) {
+          await clearServiceDraft(user.id);
+        }
+        onClose();
+        limpiar();
+        return;
+      }
+
       setPaso({
         kind: 'traslado',
         servicioId: servicio.id,
@@ -1270,7 +1285,7 @@ export const RegistroFlujoModal = ({
   );
 };
 
-async function compressPhoto(file: File): Promise<string> {
+export async function compressPhoto(file: File): Promise<string> {
   const image = await createImageBitmap(file);
   try {
     const targetBytes = 700 * 1024;

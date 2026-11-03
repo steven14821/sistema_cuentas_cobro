@@ -17,7 +17,12 @@ import {
   nombreMes,
 } from '../lib/period';
 import { AlertTriangle, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
-import { RegistroFlujoModal } from '../components/RegistroFlujoModal';
+import {
+  compressPhoto,
+  lugaresBucaramanga,
+  lugaresCucuta,
+  RegistroFlujoModal,
+} from '../components/RegistroFlujoModal';
 import {
   enqueueOperation,
   getCachedValue,
@@ -31,6 +36,23 @@ import {
 // Función para extraer únicamente el número de orden limpio para el técnico
 export function getNumeroOrdenLimpio(numeroOrden: string): string {
   return numeroOrden.replace(/^(T-)?(BUC|CUC)-/i, '').trim();
+}
+
+function getCorrectionDetails(service: ServiceApi) {
+  const description = service.descripcion_especifica ?? '';
+  const collectionDetails = description.match(/(?:\s*\|\s*)?Recolección:\s*(.*)$/i)?.[1] ?? '';
+  const doors = collectionDetails.match(/Puertas desmontadas:\s*(\d+)/i);
+  const helper = collectionDetails.match(/Ayudante:\s*sí\s*\(motivo:\s*(.+?),\s*fotos del motivo:/i);
+  return {
+    description: description.replace(/\s*\|\s*Recolección:.*$/i, '').trim(),
+    doors: Number(doors?.[1] ?? 0),
+    helper: !!helper,
+    helperReason: helper?.[1] ?? '',
+  };
+}
+
+function normalizeText(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
 function puedeFirmarCuenta(cuenta: CuentaApi): boolean {
@@ -84,7 +106,16 @@ export const TechnicianPortal = () => {
   const [editingService, setEditingService] = useState<ServiceApi | null>(null);
   const [correctionOrder, setCorrectionOrder] = useState('');
   const [correctionDescription, setCorrectionDescription] = useState('');
+  const [correctionTypeId, setCorrectionTypeId] = useState('');
+  const [correctionPhotos, setCorrectionPhotos] = useState<string[]>([]);
+  const [correctionDoors, setCorrectionDoors] = useState(0);
+  const [correctionHelper, setCorrectionHelper] = useState(false);
+  const [correctionHelperReason, setCorrectionHelperReason] = useState('');
+  const [correctionDestination, setCorrectionDestination] = useState('');
+  const [correctionTransport, setCorrectionTransport] = useState<'MOTO_PROPIA' | 'VEHICULO_EMPRESA'>('MOTO_PROPIA');
+  const [correctionError, setCorrectionError] = useState('');
   const [savingCorrection, setSavingCorrection] = useState(false);
+  const [submittingCorrection, setSubmittingCorrection] = useState(false);
   const [signatureAccount, setSignatureAccount] = useState<CuentaApi | null>(null);
   const [savingSignature, setSavingSignature] = useState(false);
 
@@ -357,9 +388,21 @@ export const TechnicianPortal = () => {
 
   const servicios = cuenta?.servicios ?? [];
   const radicada = cuenta?.radicada ?? false;
+  const enCorreccion = radicada && ['Observado', 'Rechazado'].includes(cuenta?.estado ?? '');
   const puedeEditar =
+    enCorreccion ||
     (accountMeta.puedeEditar || accountMeta.ventanaAbierta || accountMeta.tieneExcepcion) &&
     !radicada;
+  const lugaresCorreccion = user?.sede?.toLowerCase().includes('cuc')
+    ? lugaresCucuta
+    : lugaresBucaramanga;
+  const tipoCorreccion = tipos.find((tipo) => tipo.id === correctionTypeId);
+  const nombreTipoCorreccion = normalizeText(tipoCorreccion?.nombre ?? '');
+  const correccionEsTraslado = !!editingService?.numero_orden.startsWith('T-');
+  const correccionEsNevecon = /recoleccion|recogida/.test(nombreTipoCorreccion) && nombreTipoCorreccion.includes('nevecon');
+  const correccionEsAyudanteOpcional =
+    /recoleccion|recogida/.test(nombreTipoCorreccion) &&
+    !nombreTipoCorreccion.includes('incluye ayudante');
   const totalCuenta = cuenta?.total ?? 0;
 
   // Agrupar servicios por número de orden para el técnico:
@@ -495,16 +538,34 @@ export const TechnicianPortal = () => {
 
   const handleEliminarOrden = async (grupo: OrdenAgrupada) => {
     try {
-      const promises: Promise<any>[] = [
-        technicianApi.deleteService(grupo.servicioPrincipal.id),
-      ];
-      if (grupo.traslado && grupo.traslado.id !== grupo.servicioPrincipal.id) {
-        promises.push(technicianApi.deleteService(grupo.traslado.id));
+      if (enCorreccion) {
+        await technicianApi.deleteService(grupo.servicioPrincipal.id);
+      } else {
+        const promises: Promise<unknown>[] = [
+          technicianApi.deleteService(grupo.servicioPrincipal.id),
+        ];
+        if (grupo.traslado && grupo.traslado.id !== grupo.servicioPrincipal.id) {
+          promises.push(technicianApi.deleteService(grupo.traslado.id));
+        }
+        await Promise.all(promises);
       }
-      await Promise.all(promises);
-      await loadAccount();
+      await Promise.all([loadAccount(), loadHistory()]);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'No se pudo eliminar la orden.');
+    }
+  };
+
+  const handleSubmitCorrection = async () => {
+    if (!cuenta) return;
+    setSubmittingCorrection(true);
+    setLoadError('');
+    try {
+      await technicianApi.submitCorrection(cuenta.id);
+      await Promise.all([loadAccount(), loadHistory()]);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'No se pudo enviar la cuenta corregida.');
+    } finally {
+      setSubmittingCorrection(false);
     }
   };
 
@@ -537,9 +598,25 @@ export const TechnicianPortal = () => {
   };
 
   const startCorrection = (service: ServiceApi) => {
+    const details = getCorrectionDetails(service);
+    setCorrectionError('');
     setEditingService(service);
     setCorrectionOrder(getNumeroOrdenLimpio(service.numero_orden));
-    setCorrectionDescription(service.descripcion_especifica ?? '');
+    setCorrectionDescription(details.description);
+    setCorrectionTypeId(service.tipo_servicio_id);
+    setCorrectionPhotos(service.fotos ?? []);
+    setCorrectionDoors(details.doors);
+    setCorrectionHelper(details.helper);
+    setCorrectionHelperReason(details.helperReason);
+    const place = lugaresCorreccion.find((item) =>
+      normalizeText(item.dbNombre) === normalizeText(service.tipo_servicio_nombre ?? ''),
+    );
+    setCorrectionDestination(place?.id ?? '');
+    setCorrectionTransport(
+      normalizeText(service.descripcion_especifica ?? '').includes('vehiculo empresa')
+        ? 'VEHICULO_EMPRESA'
+        : 'MOTO_PROPIA',
+    );
   };
 
   const handleSaveCorrection = async (event: React.FormEvent) => {
@@ -547,24 +624,53 @@ export const TechnicianPortal = () => {
     if (!editingService) return;
     const order = correctionOrder.replace(/\D/g, '');
     if (!/^\d{5}$/.test(order)) {
-      setLoadError('El número de orden debe contener exactamente 5 dígitos.');
-      return;
-    }
-    if (!correctionDescription.trim()) {
-      setLoadError('La descripción de la orden es obligatoria.');
+      setCorrectionError('El número de orden debe contener exactamente 5 dígitos.');
       return;
     }
     setSavingCorrection(true);
-    setLoadError('');
+    setCorrectionError('');
     try {
-      await technicianApi.updateService(editingService.id, {
-        numero_orden: order,
-        descripcion_especifica: correctionDescription.trim(),
-      });
+      if (correccionEsTraslado) {
+        const place = lugaresCorreccion.find((item) => item.id === correctionDestination);
+        const transferType = tipos.find((type) =>
+          normalizeText(type.nombre) === normalizeText(place?.dbNombre ?? ''),
+        );
+        if (!place || !transferType) {
+          throw new Error('Selecciona un destino de traslado válido.');
+        }
+        await technicianApi.updateService(editingService.id, {
+          tipo_servicio_id: transferType.id,
+          numero_orden: order,
+          descripcion_especifica: `${correctionTransport === 'MOTO_PROPIA' ? 'Moto propia' : 'Vehículo empresa'} — ${place.nombre}`,
+          destino: place.id,
+          transporte: correctionTransport,
+        });
+      } else {
+        if (!correctionTypeId) throw new Error('Selecciona el tipo de servicio.');
+        if (!correctionDescription.trim()) throw new Error('La descripción del servicio es obligatoria.');
+        if (correctionHelper && !correctionHelperReason.trim()) {
+          throw new Error('Describe por qué necesitaste ayudante.');
+        }
+        if (correctionDoors > 0 && correctionPhotos.length === 0) {
+          throw new Error('Agrega al menos una foto del desmonte de puertas.');
+        }
+        if (correctionHelper && correctionPhotos.length === 0) {
+          throw new Error('Agrega al menos una foto del motivo del ayudante.');
+        }
+        await technicianApi.updateService(editingService.id, {
+          tipo_servicio_id: correctionTypeId,
+          numero_orden: order,
+          descripcion_especifica: correctionDescription.trim(),
+          fotos: correctionPhotos,
+          puertas_desmontadas: correccionEsNevecon ? correctionDoors : 0,
+          requiere_ayudante: correccionEsAyudanteOpcional && correctionHelper,
+          ...(correctionHelper ? { motivo_ayudante: correctionHelperReason.trim() } : {}),
+        });
+      }
       setEditingService(null);
       await Promise.all([loadAccount(), loadHistory()]);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'No se pudo enviar la corrección.');
+      setCorrectionError(err instanceof Error ? err.message : 'No se pudieron guardar los cambios.');
     } finally {
       setSavingCorrection(false);
     }
@@ -611,6 +717,11 @@ export const TechnicianPortal = () => {
                   <span>Excepción activa hasta {accountMeta.excepcion.fecha_vencimiento.slice(0, 10)}</span>
                 </div>
               )}
+              {enCorreccion && (
+                <div className="account-correction-notice" role="status">
+                  La cuenta fue devuelta para corrección. Puedes editar, agregar o quitar órdenes; al terminar, envíala de nuevo a revisión.
+                </div>
+              )}
               <button
                 onClick={() => {
                   setShowModal(true);
@@ -633,7 +744,7 @@ export const TechnicianPortal = () => {
                 }}
               >
                 <Plus size={18} />
-                Agregar Servicio
+                {enCorreccion ? 'Agregar orden' : 'Agregar Servicio'}
               </button>
             </div>
           ) : (
@@ -854,23 +965,14 @@ export const TechnicianPortal = () => {
                               Eliminar
                             </button>
                           )}
-                          {g.servicioObservado && (
-                            <button
-                              type="button"
-                              onClick={() => startCorrection(g.servicioObservado!)}
-                              style={{
-                                marginLeft: 6,
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                border: '1px solid #f59e0b',
-                                backgroundColor: '#fffbeb',
-                                color: '#92400e',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                              }}
-                            >
-                              Corregir
+                          {(enCorreccion || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                            <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
+                              <Edit2 size={13} /> Editar orden
+                            </button>
+                          )}
+                          {g.traslado && (enCorreccion || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                            <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
+                              <Edit2 size={13} /> Editar traslado
                             </button>
                           )}
                         </td>
@@ -898,9 +1000,14 @@ export const TechnicianPortal = () => {
                           <Trash2 size={14} /> Eliminar
                         </button>
                       )}
-                      {g.servicioObservado && (
-                        <button type="button" onClick={() => startCorrection(g.servicioObservado!)} className="order-card-correct">
-                          <Edit2 size={14} /> Corregir y reenviar
+                      {(enCorreccion || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                        <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
+                          <Edit2 size={14} /> Editar orden
+                        </button>
+                      )}
+                      {g.traslado && (enCorreccion || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                        <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
+                          <Edit2 size={14} /> Editar traslado
                         </button>
                       )}
                     </div>
@@ -930,8 +1037,10 @@ export const TechnicianPortal = () => {
               {puedeEditar && (
                 <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
                   <button
-                    onClick={handleRadicar}
-                    disabled={radicando || servicios.length === 0}
+                    onClick={enCorreccion ? handleSubmitCorrection : handleRadicar}
+                    disabled={enCorreccion
+                      ? submittingCorrection || servicios.length === 0
+                      : radicando || servicios.length === 0}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -943,13 +1052,15 @@ export const TechnicianPortal = () => {
                       borderRadius: '12px',
                       fontSize: '15px',
                       fontWeight: '700',
-                      cursor: radicando || servicios.length === 0 ? 'not-allowed' : 'pointer',
-                      opacity: radicando || servicios.length === 0 ? 0.6 : 1,
+                      cursor: (enCorreccion ? submittingCorrection : radicando) || servicios.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: (enCorreccion ? submittingCorrection : radicando) || servicios.length === 0 ? 0.6 : 1,
                       boxShadow: '0 4px 12px rgba(19, 115, 51, 0.25)'
                     }}
                   >
                     <Send size={16} />
-                    {radicando ? 'Radicando cuenta…' : 'Radicar Cuenta de Cobro'}
+                    {enCorreccion
+                      ? submittingCorrection ? 'Enviando corrección…' : 'Enviar cuenta corregida a revisión'
+                      : radicando ? 'Radicando cuenta…' : 'Radicar Cuenta de Cobro'}
                   </button>
                 </div>
               )}
@@ -1056,26 +1167,127 @@ export const TechnicianPortal = () => {
             <form className="correction-modal" onSubmit={handleSaveCorrection}>
               <div className="correction-heading">
                 <div>
-                  <h2>Corregir orden {getNumeroOrdenLimpio(editingService.numero_orden)}</h2>
-                  <p>Actualiza los datos indicados y envía el servicio a una nueva revisión.</p>
+                  <h2>{correccionEsTraslado ? 'Editar traslado' : 'Editar orden'} {getNumeroOrdenLimpio(editingService.numero_orden)}</h2>
+                  <p>Actualiza la información y guarda los cambios antes de reenviar toda la cuenta.</p>
                 </div>
                 <button type="button" onClick={() => setEditingService(null)} aria-label="Cerrar corrección">×</button>
               </div>
               {editingService.ultima_observacion && (
                 <div className="correction-observation"><strong>Observación del administrador:</strong> {editingService.ultima_observacion}</div>
               )}
+              {correctionError && <p className="correction-error" role="alert">{correctionError}</p>}
               <label>
                 Número de orden
                 <input value={correctionOrder} onChange={(event) => setCorrectionOrder(event.target.value.replace(/\D/g, '').slice(0, 5))} inputMode="numeric" maxLength={5} required />
               </label>
-              <label>
-                Descripción del servicio
-                <textarea value={correctionDescription} onChange={(event) => setCorrectionDescription(event.target.value)} maxLength={2000} rows={5} required />
-              </label>
-              <p className="correction-help">Conserva la información de ayudante o puertas desmontadas si aparece en la descripción.</p>
+              {correccionEsTraslado ? (
+                <>
+                  <label>
+                    Destino
+                    <select value={correctionDestination} onChange={(event) => setCorrectionDestination(event.target.value)} required>
+                      <option value="">Selecciona el destino...</option>
+                      {lugaresCorreccion.map((place) => (
+                        <option key={place.id} value={place.id}>{place.nombre}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Medio de transporte
+                    <select value={correctionTransport} onChange={(event) => setCorrectionTransport(event.target.value as 'MOTO_PROPIA' | 'VEHICULO_EMPRESA')}>
+                      <option value="MOTO_PROPIA">Moto propia</option>
+                      {user?.sede?.toLowerCase().includes('cuc') && (
+                        <option value="VEHICULO_EMPRESA">Vehículo empresa</option>
+                      )}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label>
+                    Tipo de servicio
+                    <select value={correctionTypeId} onChange={(event) => {
+                      setCorrectionTypeId(event.target.value);
+                      setCorrectionDoors(0);
+                      setCorrectionHelper(false);
+                      setCorrectionHelperReason('');
+                    }} required>
+                      <option value="">Selecciona el tipo de servicio...</option>
+                      {tipos.filter((tipo) => !normalizeText(tipo.nombre).startsWith('traslado')).map((tipo) => (
+                        <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Descripción del trabajo
+                    <textarea value={correctionDescription} onChange={(event) => setCorrectionDescription(event.target.value)} maxLength={2000} rows={4} required />
+                  </label>
+                  {correccionEsNevecon && (
+                    <label>
+                      Puertas desmontadas
+                      <select value={correctionDoors} onChange={(event) => setCorrectionDoors(Number(event.target.value))}>
+                        <option value={0}>Ninguna</option>
+                        {[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {correccionEsAyudanteOpcional && (
+                    <>
+                      <label>
+                        ¿Tuviste ayudante?
+                        <select value={correctionHelper ? 'si' : 'no'} onChange={(event) => {
+                          const required = event.target.value === 'si';
+                          setCorrectionHelper(required);
+                          if (!required) setCorrectionHelperReason('');
+                        }}>
+                          <option value="no">No</option>
+                          <option value="si">Sí</option>
+                        </select>
+                      </label>
+                      {correctionHelper && (
+                        <label>
+                          Motivo del ayudante
+                          <textarea value={correctionHelperReason} onChange={(event) => setCorrectionHelperReason(event.target.value)} maxLength={300} rows={2} required />
+                        </label>
+                      )}
+                    </>
+                  )}
+                  <label>
+                    Fotos y evidencias ({correctionPhotos.length}/10)
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      disabled={savingCorrection || correctionPhotos.length >= 10}
+                      onChange={(event) => {
+                        const selected = Array.from(event.target.files ?? []);
+                        event.target.value = '';
+                        if (correctionPhotos.length + selected.length > 10) {
+                          setCorrectionError('Puedes adjuntar hasta 10 fotos por orden.');
+                          return;
+                        }
+                        void Promise.all(selected.map(compressPhoto))
+                          .then((photos) => setCorrectionPhotos((current) => [...current, ...photos]))
+                          .catch((err) => setCorrectionError(err instanceof Error ? err.message : 'No se pudieron cargar las fotos.'));
+                      }}
+                    />
+                    <span className="correction-help">Las fotos existentes se conservan; puedes quitarlas o agregar evidencias nuevas.</span>
+                  </label>
+                  {correctionPhotos.length > 0 && (
+                    <div className="correction-photos">
+                      {correctionPhotos.map((photo, index) => (
+                        <div key={`${index}-${photo.slice(-12)}`}>
+                          <img src={photo} alt={`Evidencia ${index + 1}`} />
+                          <button type="button" onClick={() => setCorrectionPhotos((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Quitar foto ${index + 1}`}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="correction-help">El valor se recalcula automáticamente según el tipo de servicio y los adicionales.</p>
+                </>
+              )}
               <div className="correction-actions">
                 <button type="button" onClick={() => setEditingService(null)}>Cancelar</button>
-                <button type="submit" disabled={savingCorrection}>{savingCorrection ? 'Enviando…' : 'Enviar a nueva revisión'}</button>
+                <button type="submit" disabled={savingCorrection}>{savingCorrection ? 'Guardando…' : 'Guardar cambios'}</button>
               </div>
             </form>
           </div>
