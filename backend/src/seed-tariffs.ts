@@ -29,6 +29,7 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Diagnostico aire', valor: 20000 },
     { nombre: 'SAMSUNG: Garantía TV recogido almacén (barras)', valor: 47000 },
     { nombre: 'SAMSUNG: Reparación IH de barras led', valor: 38000 },
+    { nombre: 'SAMSUNG: Reparación estufa', valor: 20000 },
     { nombre: 'SAMSUNG: Garantía nevera', valor: 20000 },
     { nombre: 'SAMSUNG: Garantía lavadora', valor: 20000 },
     { nombre: 'SAMSUNG: Garantía lavadora (Tina Carga Frontal)', valor: 40000 },
@@ -71,9 +72,10 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Facturado panel 58" para abajo', valor: 55000 },
     
     // Traslados BGA
-    { nombre: 'TRASLADO: Piedecuesta', valor: 6000 },
-    { nombre: 'TRASLADO: Giron', valor: 3000 },
-    { nombre: 'TRASLADO: Lebrija', valor: 8000 },
+    { nombre: 'TRASLADO: Piedecuesta', valor: 8000 },
+    { nombre: 'TRASLADO: Giron', valor: 5000 },
+    { nombre: 'TRASLADO: Lebrija', valor: 10000 },
+    { nombre: 'TRASLADO: Florida', valor: 3000 },
     { nombre: 'TRASLADO: Los Santos', valor: 25000 },
     { nombre: 'TRASLADO: Rionegro-Playon', valor: 30000 },
     { nombre: 'TRASLADO: Pescadero', valor: 25000 },

@@ -17,9 +17,10 @@ export const CUCUTA_MOTO_TARIFF: Record<string, number> = {
 
 // Tarifas fijas por lugar para traslados en moto propia (Bucaramanga).
 export const BUCARAMANGA_MOTO_TARIFF: Record<string, number> = {
-  PIEDECUESA: 6000,
-  GIRON: 3000,
-  LEBRIJA: 8000,
+  PIEDECUESA: 8000,
+  GIRON: 5000,
+  LEBRIJA: 10000,
+  FLORIDA: 3000,
   LOS_SANTOS: 25000,
   RIONEGRO_PLAYON: 30000,
   PESCADERO: 25000,

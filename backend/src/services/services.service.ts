@@ -10,6 +10,7 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { TransportCalculatorService, TransportType } from './transport-calculator.service';
+import { registerOrderNumber } from './order-registry';
 import {
   getColombiaToday,
   getPeriodoARadicar,
@@ -225,17 +226,20 @@ export class ServicesService {
     }
 
     const valorAdicional = puertasDesmontadas * 10_000 + (requiereAyudante ? 10_000 : 0);
-    const servicio = await this.prisma.servicios.create({
-      data: {
-        cuenta_cobro_id: cuenta.id,
-        tipo_servicio_id: tipo.id,
-        numero_orden: numeroOrden,
-        descripcion_especifica: descripcion,
-        fotos,
-        valor_cobrado: Number(tipo.valor_estandar) + valorAdicional,
-        estado: isCorrection ? 'Observado' : 'Pendiente',
-      },
-      include: { tipos_servicio: true },
+    const servicio = await this.prisma.$transaction(async (tx) => {
+      await registerOrderNumber(tx, rawDigits);
+      return tx.servicios.create({
+        data: {
+          cuenta_cobro_id: cuenta.id,
+          tipo_servicio_id: tipo.id,
+          numero_orden: numeroOrden,
+          descripcion_especifica: descripcion,
+          fotos,
+          valor_cobrado: Number(tipo.valor_estandar) + valorAdicional,
+          estado: isCorrection ? 'Observado' : 'Pendiente',
+        },
+        include: { tipos_servicio: true },
+      });
     });
 
     return this.serializeServicio(servicio);
@@ -595,19 +599,32 @@ export class ServicesService {
       throw new BadRequestException('Las fotos deben ser imágenes JPG, PNG o WebP de máximo 1 MB cada una (hasta 10).');
     }
 
-    const updated = await this.prisma.servicios.update({
-      where: { id: servicioId },
-      data: {
-        tipo_servicio_id: dto.tipo_servicio_id,
-        numero_orden: numeroOrdenActualizado,
-        descripcion_especifica: descripcion,
-        ...(fotos !== undefined ? { fotos } : {}),
-        ...(valorCobrado !== undefined ? { valor_cobrado: valorCobrado } : {}),
-        updated_at: new Date(),
-        // Al editar un servicio rechazado/observado, vuelve a 'Pendiente' para que el admin lo revise de nuevo.
-        estado: isCorrection ? servicio.estado : isEditableState ? 'Pendiente' : servicio.estado,
-      },
-      include: { tipos_servicio: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (
+        !esTraslado &&
+        numeroOrdenActualizado !== undefined &&
+        numeroOrdenActualizado.replace(/^(T-)?(BUC|CUC)-/i, '') !==
+          servicio.numero_orden.replace(/^(T-)?(BUC|CUC)-/i, '')
+      ) {
+        await registerOrderNumber(
+          tx,
+          numeroOrdenActualizado.replace(/^(T-)?(BUC|CUC)-/i, ''),
+        );
+      }
+      return tx.servicios.update({
+        where: { id: servicioId },
+        data: {
+          tipo_servicio_id: dto.tipo_servicio_id,
+          numero_orden: numeroOrdenActualizado,
+          descripcion_especifica: descripcion,
+          ...(fotos !== undefined ? { fotos } : {}),
+          ...(valorCobrado !== undefined ? { valor_cobrado: valorCobrado } : {}),
+          updated_at: new Date(),
+          // Al editar un servicio rechazado/observado, vuelve a 'Pendiente' para que el admin lo revise de nuevo.
+          estado: isCorrection ? servicio.estado : isEditableState ? 'Pendiente' : servicio.estado,
+        },
+        include: { tipos_servicio: true },
+      });
     });
 
     if (isCorrection) return this.serializeServicio(updated);

@@ -22,9 +22,10 @@ export interface TipoServicioOption {
 
 // Catálogo de destinos por sede y su tarifa fija directa
 export const lugaresBucaramanga = [
-  { id: 'PIEDECUESA', nombre: 'Piedecuesta', valor: 6000, dbNombre: 'TRASLADO: Piedecuesta' },
-  { id: 'GIRON', nombre: 'Girón', valor: 3000, dbNombre: 'TRASLADO: Giron' },
-  { id: 'LEBRIJA', nombre: 'Lebrija', valor: 8000, dbNombre: 'TRASLADO: Lebrija' },
+  { id: 'PIEDECUESA', nombre: 'Piedecuesta', valor: 8000, dbNombre: 'TRASLADO: Piedecuesta' },
+  { id: 'GIRON', nombre: 'Girón', valor: 5000, dbNombre: 'TRASLADO: Giron' },
+  { id: 'LEBRIJA', nombre: 'Lebrija', valor: 10000, dbNombre: 'TRASLADO: Lebrija' },
+  { id: 'FLORIDA', nombre: 'Florida', valor: 3000, dbNombre: 'TRASLADO: Florida' },
   { id: 'LOS_SANTOS', nombre: 'Los Santos', valor: 25000, dbNombre: 'TRASLADO: Los Santos' },
   { id: 'RIONEGRO_PLAYON', nombre: 'Rionegro / Playón', valor: 30000, dbNombre: 'TRASLADO: Rionegro-Playon' },
   { id: 'PESCADERO', nombre: 'Pescadero', valor: 25000, dbNombre: 'TRASLADO: Pescadero' },

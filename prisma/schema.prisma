@@ -67,6 +67,11 @@ model servicios {
   @@unique([cuenta_cobro_id, numero_orden], map: "unique_orden_por_cuenta")
 }
 
+model ordenes_registradas {
+  numero_orden String   @id @db.VarChar(50)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model tipos_servicio {
   id             String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
