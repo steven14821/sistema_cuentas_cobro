@@ -74,7 +74,7 @@ describe('AdminService — deleteUser', () => {
       });
       prisma.tipos_servicio.findUnique.mockResolvedValue({
         id: 'type-new',
-        nombre: 'SAMSUNG: Diagnóstico TV',
+        nombre: 'SAMSUNG: Diagnóstico garantía',
         valor_estandar: 10000,
         activo: true,
       });
@@ -86,7 +86,7 @@ describe('AdminService — deleteUser', () => {
         descripcion_especifica: 'Instalación',
         valor_cobrado: 10000,
         estado: 'Pendiente',
-        tipos_servicio: { nombre: 'SAMSUNG: Diagnóstico TV' },
+        tipos_servicio: { nombre: 'SAMSUNG: Diagnóstico garantía' },
       });
 
       const result = await service.updateServiceType('service-1', 'type-new', 'admin-1');
@@ -103,7 +103,7 @@ describe('AdminService — deleteUser', () => {
           observacion: expect.stringContaining('Valor actualizado de 50000 a 10000'),
         }),
       }));
-      expect(result.tipo_servicio_nombre).toBe('SAMSUNG: Diagnóstico TV');
+      expect(result.tipo_servicio_nombre).toBe('SAMSUNG: Diagnóstico garantía');
       expect(result.valor_cobrado).toBe(10000);
     });
 

@@ -29,6 +29,8 @@ export const BUCARAMANGA_MOTO_TARIFF: Record<string, number> = {
   MATANZA: 25000,
   ACAPULCO: 9000,
   SAN_VICENTE: 75000,
+  BARRANCABERMEJA: 85000,
+  SAN_GIL: 95000,
 };
 
 export enum TransportType {

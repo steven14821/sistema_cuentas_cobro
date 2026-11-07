@@ -83,6 +83,8 @@ async function bootstrap() {
     { nombre: 'TRASLADO: Matanza', valor: 25000 },
     { nombre: 'TRASLADO: Acapulco', valor: 9000 },
     { nombre: 'TRASLADO: San Vicente', valor: 75000 },
+    { nombre: 'TRASLADO: Barrancabermeja', valor: 85000 },
+    { nombre: 'TRASLADO: San Gil', valor: 95000 },
 
     // Traslados Cúcuta
     { nombre: 'TRASLADO CUC: Patios', valor: 4000 },
@@ -103,9 +105,9 @@ async function bootstrap() {
     { nombre: 'HISENSE: Cambio de compresor', valor: 90000 },
     { nombre: 'HISENSE: Cambio de parte aires', valor: 35000 },
 
-    // Diagnóstico de TV disponible para todas las marcas.
+    // Diagnóstico de garantía de TV disponible para todas las marcas.
     ...(['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => ({
-      nombre: `${marca}: Diagnóstico TV`,
+      nombre: `${marca}: Diagnóstico garantía`,
       valor: 10000,
     })),
 
@@ -147,13 +149,36 @@ async function bootstrap() {
   ];
 
   console.log('🚀 Iniciando actualización de tarifas...');
-  
+
+  for (const marca of ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const) {
+    const oldName = `${marca}: Diagnóstico TV`;
+    const newName = `${marca}: Diagnóstico garantía`;
+    const oldType = await prisma.tipos_servicio.findUnique({ where: { nombre: oldName } });
+    const newType = await prisma.tipos_servicio.findUnique({ where: { nombre: newName } });
+    if (!oldType) continue;
+
+    await prisma.$transaction(async (tx) => {
+      if (newType) {
+        await tx.servicios.updateMany({
+          where: { tipo_servicio_id: oldType.id },
+          data: { tipo_servicio_id: newType.id },
+        });
+        await tx.tipos_servicio.delete({ where: { id: oldType.id } });
+      } else {
+        await tx.tipos_servicio.update({
+          where: { id: oldType.id },
+          data: { nombre: newName, valor_estandar: 10000, activo: true },
+        });
+      }
+    });
+  }
+
   for (const t of tariffs) {
     await prisma.tipos_servicio.upsert({
       where: { nombre: t.nombre },
       update: {
         valor_estandar: t.valor,
-        ...(t.nombre.endsWith(': Diagnóstico TV') ? { activo: true } : {}),
+        ...(t.nombre.endsWith(': Diagnóstico garantía') ? { activo: true } : {}),
       },
       create: {
         nombre: t.nombre,

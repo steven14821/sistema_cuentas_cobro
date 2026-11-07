@@ -34,6 +34,8 @@ export const lugaresBucaramanga = [
   { id: 'MATANZA', nombre: 'Matanza', valor: 25000, dbNombre: 'TRASLADO: Matanza' },
   { id: 'ACAPULCO', nombre: 'Acapulco', valor: 9000, dbNombre: 'TRASLADO: Acapulco' },
   { id: 'SAN_VICENTE', nombre: 'San Vicente', valor: 75000, dbNombre: 'TRASLADO: San Vicente' },
+  { id: 'BARRANCABERMEJA', nombre: 'Barrancabermeja', valor: 85000, dbNombre: 'TRASLADO: Barrancabermeja' },
+  { id: 'SAN_GIL', nombre: 'San Gil', valor: 95000, dbNombre: 'TRASLADO: San Gil' },
 ] as const;
 
 export const lugaresCucuta = [
