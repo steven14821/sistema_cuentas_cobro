@@ -46,25 +46,6 @@ export const LoginPage = () => {
     }
   };
 
-  // --- DEBUG TOOLS (Remove before production) ---
-  const quickLogin = async (username: string, pass: string) => {
-    setForm({ username, password: pass });
-    // Small timeout to let state update before triggering login
-    setTimeout(async () => {
-      setError('');
-      setLoading(true);
-      try {
-        const logged = await login(username, pass);
-        navigate(homeFor(logged.role));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
-      } finally {
-        setLoading(false);
-      }
-    }, 10);
-  };
-  // --------------------------------------------
-
   return (
 
     <div
@@ -284,58 +265,6 @@ export const LoginPage = () => {
             gap: '10px',
           }}
         >
-          {/* --- DEBUG TOOLS (Remove before production) --- */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
-            justifyContent: 'center', 
-            marginBottom: '15px',
-            padding: '10px',
-            border: '1px dashed #ccc',
-            borderRadius: '10px',
-            backgroundColor: 'rgba(0,0,0,0.02)'
-          }}>
-            <button 
-              onClick={() => quickLogin('admin@em.com', 'password123')} 
-              style={{ 
-                fontSize: '11px', 
-                padding: '4px 8px', 
-                cursor: 'pointer', 
-                borderRadius: '6px', 
-                border: '1px solid #ccc',
-                backgroundColor: '#fff' 
-              }}
-            >
-              🚀 Admin Test
-            </button>
-            <button 
-              onClick={() => quickLogin('pruebabuc@em.com', 'password123')} 
-              style={{ 
-                fontSize: '11px', 
-                padding: '4px 8px', 
-                cursor: 'pointer', 
-                borderRadius: '6px', 
-                border: '1px solid #ccc',
-                backgroundColor: '#fff' 
-              }}
-            >
-              🛠️ Tech BUC
-            </button>
-            <button 
-              onClick={() => quickLogin('pruebacuc@em.com', 'password123')} 
-              style={{ 
-                fontSize: '11px', 
-                padding: '4px 8px', 
-                cursor: 'pointer', 
-                borderRadius: '6px', 
-                border: '1px solid #ccc',
-                backgroundColor: '#fff' 
-              }}
-            >
-              🛠️ Tech CUC
-            </button>
-          </div>
-          {/* -------------------------------------------- */}
 
           <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '8px' }}>
             © 2026 E&amp;M Electronic Solutions
