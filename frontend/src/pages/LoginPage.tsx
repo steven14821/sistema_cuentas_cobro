@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { EmLogo } from '../components/EmLogo';
 
@@ -210,9 +211,9 @@ export const LoginPage = () => {
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showPassword ? (
-                  <span style={{ fontSize: '18px', lineHeight: 1 }}>👁️</span>
+                  <EyeOff size={19} />
                 ) : (
-                  <span style={{ fontSize: '18px', lineHeight: 1 }}>👁️‍🗨️</span>
+                  <Eye size={19} />
                 )}
               </button>
             </div>
@@ -336,19 +337,6 @@ export const LoginPage = () => {
           </div>
           {/* -------------------------------------------- */}
 
-          <a
-            href="#"
-            style={{
-              color: 'var(--blue)',
-              textDecoration: 'none',
-              fontWeight: '500',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseOver={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.opacity = '0.7')}
-            onMouseOut={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.opacity = '1')}
-          >
-            ¿Olvidaste tu contraseña?
-          </a>
           <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '8px' }}>
             © 2026 E&amp;M Electronic Solutions
           </div>
