@@ -103,6 +103,13 @@ export class AdminController {
     return this.adminService.createException(body.usuario_id, new Date(body.fecha_vencimiento), req.user!.id, body.motivo);
   }
 
+  @Delete('exceptions/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin')
+  async deleteException(@Param('id') id: string) {
+    return this.adminService.deleteException(id);
+  }
+
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin')

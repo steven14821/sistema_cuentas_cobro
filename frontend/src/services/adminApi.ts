@@ -255,6 +255,11 @@ export const reviewApi = {
       body: JSON.stringify(payload),
     }),
 
+  deleteException: (id: string) =>
+    apiFetch<void>(`${BASE}/exceptions/${id}`, {
+      method: 'DELETE',
+    }),
+
   getUser: (id: string) => apiFetch<UserRow>(`${BASE}/users/${id}`),
 
   updateUser: (id: string, payload: { username: string; nombre_completo: string; email: string; sede?: string | null }) =>

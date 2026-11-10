@@ -477,6 +477,12 @@ export class AdminService {
     });
   }
 
+  async deleteException(id: string) {
+    const existing = await this.prisma.excepciones_carga.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Excepción no encontrada.');
+    return this.prisma.excepciones_carga.delete({ where: { id } });
+  }
+
   // ---- Gestión de usuarios ----
 
   async listUsers() {

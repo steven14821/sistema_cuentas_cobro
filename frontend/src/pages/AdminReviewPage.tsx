@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   useUsers,
@@ -97,6 +97,21 @@ export const AdminReviewPage = () => {
     else if (tab === 'excepciones') loadExceptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const [deletingExceptionId, setDeletingExceptionId] = useState<string | null>(null);
+
+  const handleDeleteException = async (id: string) => {
+    if (!window.confirm('¿Seguro que deseas eliminar esta excepción?')) return;
+    setDeletingExceptionId(id);
+    try {
+      await reviewApi.deleteException(id);
+      await loadExceptions();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo eliminar la excepción.');
+    } finally {
+      setDeletingExceptionId(null);
+    }
+  };
 
   // ---- Acciones ----
   const handleCreateException = async (form: { usuario_id: string; fecha_vencimiento: string; motivo?: string }) => {
@@ -479,6 +494,7 @@ export const AdminReviewPage = () => {
                       <th style={th}>Vence</th>
                       <th style={th}>Motivo</th>
                       <th style={th}>Creada</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -505,6 +521,32 @@ export const AdminReviewPage = () => {
                           </td>
                           <td style={{ ...td, color: 'var(--text-secondary)' }}>{e.motivo || '—'}</td>
                           <td style={td}>{e.created_at ? new Date(e.created_at).toLocaleDateString('es-CO') : '—'}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteException(e.id)}
+                              disabled={deletingExceptionId === e.id}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                color: '#d93025',
+                                backgroundColor: '#fce8e6',
+                                border: '1px solid #fad2cf',
+                                borderRadius: '8px',
+                                cursor: deletingExceptionId === e.id ? 'not-allowed' : 'pointer',
+                                opacity: deletingExceptionId === e.id ? 0.6 : 1,
+                                transition: 'all 0.15s ease',
+                              }}
+                              title="Eliminar excepción"
+                            >
+                              <Trash2 size={14} />
+                              {deletingExceptionId === e.id ? 'Borrando...' : 'Borrar'}
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
