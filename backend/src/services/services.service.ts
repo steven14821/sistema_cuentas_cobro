@@ -14,6 +14,7 @@ import { registerOrderNumber } from './order-registry';
 import {
   getColombiaToday,
   getPeriodoARadicar,
+  getPeriodoConExcepcion,
   isVentanaAbierta,
   toUtcDate,
 } from './period.util';
@@ -44,6 +45,18 @@ export class ServicesService {
         'Carga extemporánea: Solo se pueden registrar servicios del 1 al 5 de cada mes. Solicite una excepción al administrador.',
       );
     }
+  }
+
+  private async getPeriodoVigente(usuarioId: string) {
+    const hoy = getColombiaToday();
+    if (isVentanaAbierta(hoy.dia)) return getPeriodoARadicar(hoy);
+    const excepcion = await this.prisma.excepciones_carga.findFirst({
+      where: {
+        usuario_id: usuarioId,
+        fecha_vencimiento: { gte: toUtcDate(hoy) },
+      },
+    });
+    return getPeriodoConExcepcion(hoy, !!excepcion);
   }
 
   private serializeServicio(servicio: any) {
@@ -101,7 +114,7 @@ export class ServicesService {
   // ---- API del técnico ----
 
   async createService(usuarioId: string, dto: CreateServiceDto) {
-    const periodo = getPeriodoARadicar(getColombiaToday());
+    const periodo = await this.getPeriodoVigente(usuarioId);
     let cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: {
         usuario_id_mes_anio: {
@@ -307,7 +320,7 @@ export class ServicesService {
     dto: CreateTransferDto,
     currentServices: { id: string; valor_cobrado: number; tipo_servicio_id: string }[] = [],
   ) {
-    const periodo = getPeriodoARadicar(getColombiaToday());
+    const periodo = await this.getPeriodoVigente(usuarioId);
 
     let cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: {
@@ -694,7 +707,7 @@ export class ServicesService {
       orderBy: { fecha_vencimiento: 'desc' },
     });
 
-    const periodo = getPeriodoARadicar(hoy);
+    const periodo = getPeriodoConExcepcion(hoy, !!excepcion);
     const cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: {
         usuario_id_mes_anio: {
@@ -738,7 +751,7 @@ export class ServicesService {
   }
 
   async radicarAccount(usuarioId: string) {
-    const periodo = getPeriodoARadicar(getColombiaToday());
+    const periodo = await this.getPeriodoVigente(usuarioId);
     const cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: {
         usuario_id_mes_anio: {

@@ -3,6 +3,7 @@ import {
   isVentanaAbierta,
   getPeriodoAnterior,
   getPeriodoARadicar,
+  getPeriodoConExcepcion,
   getColombiaToday,
 } from './period.util.js';
 
@@ -47,6 +48,22 @@ describe('period.util', () => {
       expect(getPeriodoARadicar({ anio: 2026, mes: 10, dia: 5 })).toEqual({
         mes: 9,
         anio: 2026,
+      });
+    });
+
+    describe('getPeriodoConExcepcion', () => {
+      it('mantiene el período del mes anterior durante una excepción fuera de la ventana normal', () => {
+        expect(getPeriodoConExcepcion(
+          { anio: 2026, mes: 11, dia: 9 },
+          true,
+        )).toEqual({ mes: 10, anio: 2026 });
+      });
+
+      it('usa el mes actual si no hay una excepción vigente después del día 5', () => {
+        expect(getPeriodoConExcepcion(
+          { anio: 2026, mes: 11, dia: 9 },
+          false,
+        )).toEqual({ mes: 11, anio: 2026 });
       });
     });
 

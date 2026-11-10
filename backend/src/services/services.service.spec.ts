@@ -58,6 +58,30 @@ describe('ServicesService', () => {
     vi.useRealTimers();
   });
 
+  it('uses the previous month for an active exception after the regular window', async () => {
+    vi.setSystemTime(new Date('2026-11-09T15:00:00Z'));
+    prisma.excepciones_carga.findFirst.mockResolvedValue({
+      id: 'exception-1',
+      fecha_vencimiento: new Date('2026-11-11T00:00:00Z'),
+    });
+    prisma.cuentas_cobro.findUnique.mockResolvedValue(null);
+
+    const result = await service.getMyAccount('u1');
+
+    expect(result.periodo).toEqual({ mes: 10, anio: 2026 });
+    expect(prisma.cuentas_cobro.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          usuario_id_mes_anio: {
+            usuario_id: 'u1',
+            mes: 10,
+            anio: 2026,
+          },
+        },
+      }),
+    );
+  });
+
   describe('createService — ventana de carga (días 1-5, UTC-5)', () => {
     it('permite agregar servicios a una cuenta devuelta aunque la ventana esté cerrada', async () => {
       vi.setSystemTime(new Date('2026-10-10T15:00:00Z'));
@@ -88,7 +112,7 @@ describe('ServicesService', () => {
         descripcion_especifica: 'Servicio',
       });
 
-      expect(prisma.excepciones_carga.findFirst).not.toHaveBeenCalled();
+      expect(prisma.excepciones_carga.findFirst).toHaveBeenCalled();
       expect(prisma.servicios.create).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ estado: 'Observado' }),
       }));

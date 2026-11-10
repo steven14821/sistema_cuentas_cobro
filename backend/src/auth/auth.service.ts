@@ -7,8 +7,12 @@ import * as bcrypt from 'bcrypt';
 export class AuthService {
   constructor(private prisma: PrismaService, private jwtService: JwtService) {}
 
-  async login(email: string, password: string) {
-    const user = await this.prisma.usuarios.findUnique({ where: { email } });
+  async login(identifier: string, password: string) {
+    const user = await this.prisma.usuarios.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }],
+      },
+    });
     if (!user || !user.activo || !(await bcrypt.compare(password, user.password_hash))) {
       throw new UnauthorizedException('Credenciales inválidas');
     }

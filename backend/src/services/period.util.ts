@@ -52,6 +52,15 @@ export function getPeriodoARadicar(fecha: FechaColombia): Periodo {
   return { mes: fecha.mes, anio: fecha.anio };
 }
 
+// Una excepción vigente después del día 5 mantiene abierta la cuenta del mes anterior.
+export function getPeriodoConExcepcion(
+  fecha: FechaColombia,
+  tieneExcepcion: boolean,
+): Periodo {
+  if (tieneExcepcion) return getPeriodoAnterior(fecha);
+  return getPeriodoARadicar(fecha);
+}
+
 // Date a medianoche UTC, compatible con columnas @db.Date.
 export function toUtcDate({ anio, mes, dia }: FechaColombia): Date {
   return new Date(Date.UTC(anio, mes - 1, dia, 0, 0, 0, 0));

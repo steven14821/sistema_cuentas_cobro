@@ -4,12 +4,12 @@ import { useAuth } from '../context/AuthContext';
 import { EmLogo } from '../components/EmLogo';
 
 type LoginForm = {
-  email: string;
+  username: string;
   password: string;
 };
 
 export const LoginPage = () => {
-  const [form, setForm] = useState<LoginForm>({ email: '', password: '' });
+  const [form, setForm] = useState<LoginForm>({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,8 +22,8 @@ export const LoginPage = () => {
     e.preventDefault();
     setError('');
 
-    if (!form.email.trim()) {
-      setError('Ingresa tu correo electrónico.');
+    if (!form.username.trim()) {
+      setError('Ingresa tu nombre de usuario.');
       return;
     }
     if (!form.password) {
@@ -34,7 +34,7 @@ export const LoginPage = () => {
     setLoading(true);
 
     try {
-      const logged = await login(form.email.trim(), form.password);
+      const logged = await login(form.username.trim(), form.password);
 
       // Al usuario que inició sesión le redirigimos según su rol real.
       navigate(homeFor(logged.role));
@@ -46,14 +46,14 @@ export const LoginPage = () => {
   };
 
   // --- DEBUG TOOLS (Remove before production) ---
-  const quickLogin = async (email: string, pass: string) => {
-    setForm({ email, password: pass });
+  const quickLogin = async (username: string, pass: string) => {
+    setForm({ username, password: pass });
     // Small timeout to let state update before triggering login
     setTimeout(async () => {
       setError('');
       setLoading(true);
       try {
-        const logged = await login(email, pass);
+        const logged = await login(username, pass);
         navigate(homeFor(logged.role));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
@@ -131,10 +131,11 @@ export const LoginPage = () => {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
             <input
-              type="email"
-              placeholder="Correo electrónico"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              type="text"
+              placeholder="Nombre de usuario o correo"
+              autoComplete="username"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
               required
               style={{
                 padding: '16px 20px',
@@ -219,7 +220,7 @@ export const LoginPage = () => {
 
           <button
             type="submit"
-            disabled={loading || !form.email.trim() || !form.password}
+            disabled={loading || !form.username.trim() || !form.password}
             onMouseDown={(e) => {
               if (!loading) (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.97)';
             }}
@@ -241,7 +242,7 @@ export const LoginPage = () => {
               color: 'white',
               fontSize: '17px',
               fontWeight: '600',
-              cursor: loading || !form.email.trim() || !form.password ? 'not-allowed' : 'pointer',
+              cursor: loading || !form.username.trim() || !form.password ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               transform: loading ? 'scale(1)' : 'scale(1)',
               boxShadow: '0 4px 12px rgba(0, 82, 204, 0.3)',

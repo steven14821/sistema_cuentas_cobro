@@ -18,7 +18,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   initialized: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (username: string, password: string) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -53,13 +53,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [hydrate]);
 
   const login = useCallback(
-    async (email: string, password: string): Promise<AuthUser> => {
+    async (username: string, password: string): Promise<AuthUser> => {
       const data = await apiFetch<{
         accessToken: string;
         user: { id: string; email: string; nombre_completo: string; rol: string; sede?: string };
       }>('/auth/login', {
         method: 'POST',
-        body: { email, password },
+        body: { username, password },
       });
 
       const { accessToken, user: backendUser } = data;
