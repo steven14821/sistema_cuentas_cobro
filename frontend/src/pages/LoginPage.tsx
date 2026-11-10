@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { EmLogo } from '../components/EmLogo';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 type LoginForm = {
   username: string;
@@ -55,16 +56,19 @@ export const LoginPage = () => {
         justifyContent: 'center',
         minHeight: '100vh',
         padding: '20px',
-        background: 'radial-gradient(circle at top left, #ffffff 0%, #f5f5f7 100%)',
+        background: 'radial-gradient(circle at top left, var(--surface) 0%, var(--bg) 100%)',
       }}
     >
+      <div style={{ position: 'fixed', top: 18, right: 18, zIndex: 10 }}>
+        <ThemeToggle compact />
+      </div>
       <div
         style={{
           position: 'relative',
-          background: 'rgba(255, 255, 255, 0.7)',
+          background: 'var(--glass-bg)',
           backdropFilter: 'blur(30px) saturate(180%)',
           WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-          border: '1px solid rgba(255, 255, 255, 0.5)',
+          border: '1px solid var(--glass-border)',
           borderRadius: '38px',
           padding: 'clamp(28px, 8vw, 48px) clamp(20px, 7vw, 40px)',
           width: '100%',
@@ -98,9 +102,9 @@ export const LoginPage = () => {
             style={{
               padding: '12px 16px',
               borderRadius: '14px',
-              backgroundColor: 'rgba(245, 196, 0, 0.15)',
-              border: '1px solid rgba(245, 196, 0, 0.4)',
-              color: '#7a5c00',
+              backgroundColor: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              color: 'var(--warning-text)',
               fontSize: '14px',
               fontWeight: '500',
               textAlign: 'left',
@@ -122,9 +126,9 @@ export const LoginPage = () => {
               style={{
                 padding: '16px 20px',
                 borderRadius: '14px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: '1px solid var(--border)',
                 fontSize: '17px',
-                backgroundColor: 'rgba(255,255,255,0.8)',
+                backgroundColor: 'var(--surface)',
                 outline: 'none',
                 transition: 'all 0.2s ease',
                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
@@ -135,7 +139,7 @@ export const LoginPage = () => {
                 e.target.style.boxShadow = '0 0 0 4px rgba(0, 87, 184, 0.1)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(0,0,0,0.1)';
+                e.target.style.borderColor = 'var(--border)';
                 e.target.style.boxShadow = 'none';
               }}
             />
@@ -152,9 +156,9 @@ export const LoginPage = () => {
                 style={{
                   padding: '16px 44px 16px 20px',
                   borderRadius: '14px',
-                  border: '1px solid rgba(0,0,0,0.1)',
+                  border: '1px solid var(--border)',
                   fontSize: '17px',
-                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  backgroundColor: 'var(--surface)',
                   outline: 'none',
                   transition: 'all 0.2s ease',
                   boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
@@ -165,7 +169,7 @@ export const LoginPage = () => {
                   e.target.style.boxShadow = '0 0 0 4px rgba(0, 87, 184, 0.1)';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(0,0,0,0.1)';
+                  e.target.style.borderColor = 'var(--border)';
                   e.target.style.boxShadow = 'none';
                 }}
               />
@@ -220,8 +224,8 @@ export const LoginPage = () => {
               border: 'none',
               backgroundColor: loading
                 ? 'var(--text-secondary)'
-                : '#0052cc',
-              color: 'white',
+                : 'var(--blue-solid)',
+              color: 'var(--on-accent)',
               fontSize: '17px',
               fontWeight: '600',
               cursor: loading || !form.username.trim() || !form.password ? 'not-allowed' : 'pointer',

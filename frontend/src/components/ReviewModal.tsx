@@ -33,9 +33,9 @@ export const ReviewModal = ({
   };
 
   const acciones: { status: EstadoServicio; label: string; color: string; bg: string }[] = [
-    { status: 'Aprobado', label: 'Aprobar', color: 'white', bg: '#2d8a39' },
-    { status: 'Observado', label: 'Observar', color: '#7a5c00', bg: '#fff6e0' },
-    { status: 'Rechazado', label: 'Rechazar', color: 'white', bg: '#d32f2f' },
+    { status: 'Aprobado', label: 'Aprobar', color: 'var(--on-accent)', bg: 'var(--success-solid)' },
+    { status: 'Observado', label: 'Observar', color: 'var(--warning-text)', bg: 'var(--warning-bg)' },
+    { status: 'Rechazado', label: 'Rechazar', color: 'var(--on-accent)', bg: 'var(--danger-solid)' },
   ];
 
   return (
@@ -45,7 +45,7 @@ export const ReviewModal = ({
         style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.35)',
+          backgroundColor: 'var(--scrim)',
           backdropFilter: 'blur(3px)',
           WebkitBackdropFilter: 'blur(3px)',
           zIndex: 200,
@@ -57,7 +57,7 @@ export const ReviewModal = ({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          background: 'white',
+          background: 'var(--surface)',
           borderRadius: '24px',
           padding: 'clamp(24px, 6vw, 36px)',
           width: '100%',
@@ -106,10 +106,10 @@ export const ReviewModal = ({
             marginTop: '6px',
             padding: '10px 12px',
             borderRadius: '10px',
-            border: '1px solid rgba(0,0,0,0.1)',
+            border: '1px solid var(--border)',
             fontSize: '15px',
             outline: 'none',
-            background: 'rgba(255,255,255,0.85)',
+            background: 'var(--glass-bg)',
             width: '100%',
             resize: 'vertical',
             fontFamily: 'inherit',
@@ -122,9 +122,9 @@ export const ReviewModal = ({
               marginTop: '12px',
               padding: '10px 12px',
               borderRadius: '10px',
-              background: 'rgba(245,196,0,0.15)',
-              border: '1px solid rgba(245,196,0,0.45)',
-              color: '#7a5c00',
+              background: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              color: 'var(--warning-text)',
               fontSize: '13px',
               fontWeight: 500,
             }}
@@ -144,7 +144,7 @@ export const ReviewModal = ({
                 flex: 1,
                 padding: '11px',
                 borderRadius: '11px',
-                border: a.status === 'Observado' ? '1px solid rgba(245,196,0,0.5)' : 'none',
+                border: a.status === 'Observado' ? '1px solid var(--warning-border)' : 'none',
                 background: saving ? 'var(--text-secondary)' : a.bg,
                 color: a.color,
                 fontWeight: 600,

@@ -703,11 +703,11 @@ export const TechnicianPortal = () => {
                   style={{
                     padding: '8px 14px',
                     borderRadius: '10px',
-                    backgroundColor: '#e6f4ea',
-                    color: '#137333',
+                    backgroundColor: 'var(--success-bg)',
+                    color: 'var(--success-text)',
                     fontSize: '13px',
                     fontWeight: '600',
-                    border: '1px solid #ceead6',
+                    border: '1px solid var(--success-border)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
@@ -731,8 +731,8 @@ export const TechnicianPortal = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  backgroundColor: 'var(--blue)',
-                  color: 'white',
+                  backgroundColor: 'var(--blue-solid)',
+                  color: 'var(--on-accent)',
                   border: 'none',
                   padding: '12px 20px',
                   borderRadius: '14px',
@@ -754,10 +754,10 @@ export const TechnicianPortal = () => {
               gap: '8px',
               padding: '10px 16px',
               borderRadius: '12px',
-              backgroundColor: cuenta?.estado === 'Aprobado' ? '#e6f4ea' : cuenta?.estado === 'Rechazado' ? '#fce8e6' : cuenta?.estado === 'Observado' ? '#fff3e0' : '#fff3cd',
-              color: cuenta?.estado === 'Aprobado' ? '#137333' : cuenta?.estado === 'Rechazado' ? '#c5221f' : cuenta?.estado === 'Observado' ? '#e65100' : '#856404',
+              backgroundColor: cuenta?.estado === 'Aprobado' ? 'var(--success-bg)' : cuenta?.estado === 'Rechazado' ? 'var(--danger-bg)' : cuenta?.estado === 'Observado' ? 'var(--warning-bg)' : 'var(--warning-bg)',
+              color: cuenta?.estado === 'Aprobado' ? 'var(--success-text)' : cuenta?.estado === 'Rechazado' ? 'var(--danger-text)' : cuenta?.estado === 'Observado' ? 'var(--warning-text)' : 'var(--warning-text)',
               fontSize: '14px',
-              border: `1px solid ${cuenta?.estado === 'Aprobado' ? '#bbf7d0' : cuenta?.estado === 'Rechazado' ? '#fecaca' : cuenta?.estado === 'Observado' ? '#fed7aa' : '#ffeeba'}`
+              border: `1px solid ${cuenta?.estado === 'Aprobado' ? 'var(--success-border)' : cuenta?.estado === 'Rechazado' ? 'var(--danger-border)' : cuenta?.estado === 'Observado' ? 'var(--warning-border)' : 'var(--warning-border)'}`
             }}>
               {cuenta?.estado === 'Aprobado' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
               <span style={{ fontWeight: 600 }}>
@@ -826,12 +826,12 @@ export const TechnicianPortal = () => {
           <div style={{
             padding: '14px 18px',
             borderRadius: '14px',
-            backgroundColor: '#fde8e8',
-            color: '#c81e1e',
+            backgroundColor: 'var(--danger-bg)',
+            color: 'var(--danger-text)',
             marginBottom: '24px',
             fontSize: '14px',
             fontWeight: '500',
-            border: '1px solid #f8b4b4'
+            border: '1px solid var(--danger-border)'
           }}>
             {loadError}
           </div>
@@ -839,11 +839,11 @@ export const TechnicianPortal = () => {
 
         {/* Resumen período actual */}
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--surface)',
           borderRadius: '24px',
           padding: '28px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-          border: '1px solid rgba(0,0,0,0.05)',
+          border: '1px solid var(--border)',
           marginBottom: '32px'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
@@ -863,8 +863,8 @@ export const TechnicianPortal = () => {
                   style={{
                     padding: '8px 14px',
                     borderRadius: '10px',
-                    border: '1px solid rgba(0,0,0,0.12)',
-                    backgroundColor: 'white',
+                    border: '1px solid var(--border-strong)',
+                    backgroundColor: 'var(--surface)',
                     color: 'var(--ink)',
                     fontSize: '13px',
                     fontWeight: '600',
@@ -883,9 +883,9 @@ export const TechnicianPortal = () => {
               textAlign: 'center',
               color: 'var(--text-secondary)',
               fontSize: '15px',
-              backgroundColor: '#fafafa',
+              backgroundColor: 'var(--surface-2)',
               borderRadius: '16px',
-              border: '1px dashed #ddd'
+              border: '1px dashed var(--border-strong)'
             }}>
               Aún no has agregado servicios a la cuenta de {nombreMes(periodo.mes)} {periodo.anio}.
             </div>
@@ -893,7 +893,7 @@ export const TechnicianPortal = () => {
             <>
               <div className="table-scroll table-wide desktop-only">
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead style={{ borderBottom: '1px solid #eee' }}>
+                  <thead style={{ borderBottom: '1px solid var(--border)' }}>
                     <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
                       <th style={{ padding: '12px 0', fontWeight: '600' }}>Orden</th>
                       <th style={{ padding: '12px 0', fontWeight: '600' }}>Tipo de Servicio</th>
@@ -904,7 +904,7 @@ export const TechnicianPortal = () => {
                   </thead>
                   <tbody>
                     {ordenesAgrupadas.map((g) => (
-                      <tr key={g.numeroOrden} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                      <tr key={g.numeroOrden} style={{ borderBottom: '1px solid var(--surface-2)' }}>
                         <td style={{ padding: '16px 0', fontSize: '15px', fontWeight: '700', color: 'var(--ink)' }}>
                           {g.numeroOrden}
                         </td>
@@ -920,11 +920,11 @@ export const TechnicianPortal = () => {
                               marginTop: '4px',
                               padding: '2px 8px',
                               borderRadius: '6px',
-                              backgroundColor: '#eff6ff',
-                              color: '#1e40af',
+                              backgroundColor: 'var(--info-bg)',
+                              color: 'var(--info-text)',
                               fontSize: '12px',
                               fontWeight: '600',
-                              border: '1px solid #dbeafe'
+                              border: '1px solid var(--info-border)'
                             }}>
                               <Truck size={12} />
                               <span>Con traslado: {g.traslado.descripcion_especifica ?? 'Traslado incluido'}</span>
@@ -934,7 +934,7 @@ export const TechnicianPortal = () => {
                         <td style={{ padding: '16px 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '280px' }}>
                           {g.servicioPrincipal.descripcion_especifica || '—'}
                           {g.servicioObservado?.ultima_observacion && (
-                            <div style={{ marginTop: 6, color: '#b45309', fontSize: 12, fontWeight: 600 }}>
+                            <div style={{ marginTop: 6, color: 'var(--warning-text)', fontSize: 12, fontWeight: 600 }}>
                               Observación: {g.servicioObservado.ultima_observacion}
                             </div>
                           )}
@@ -950,9 +950,9 @@ export const TechnicianPortal = () => {
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '8px',
-                                border: '1px solid rgba(211,47,47,0.3)',
-                                backgroundColor: 'white',
-                                color: '#d32f2f',
+                                border: '1px solid var(--danger-border)',
+                                backgroundColor: 'var(--surface)',
+                                color: 'var(--danger-text)',
                                 cursor: 'pointer',
                                 fontSize: '12px',
                                 fontWeight: '600',
@@ -1023,7 +1023,7 @@ export const TechnicianPortal = () => {
                 gap: '12px',
                 marginTop: '16px',
                 paddingTop: '16px',
-                borderTop: '1px solid #eee'
+                borderTop: '1px solid var(--border)'
               }}>
                 <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
                   {ordenesAgrupadas.length} orden{ordenesAgrupadas.length !== 1 ? 'es' : ''} registrada{ordenesAgrupadas.length !== 1 ? 's' : ''}
@@ -1045,8 +1045,8 @@ export const TechnicianPortal = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      backgroundColor: '#137333',
-                      color: 'white',
+                      backgroundColor: 'var(--success-solid)',
+                      color: 'var(--on-accent)',
                       border: 'none',
                       padding: '12px 24px',
                       borderRadius: '12px',
@@ -1070,11 +1070,11 @@ export const TechnicianPortal = () => {
 
         {/* Historial de Cuentas */}
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--surface)',
           borderRadius: '24px',
           padding: '24px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-          border: '1px solid rgba(0,0,0,0.05)'
+          border: '1px solid var(--border)'
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '20px' }}>
             Historial de Cuentas Radicadas
@@ -1085,9 +1085,9 @@ export const TechnicianPortal = () => {
               textAlign: 'center',
               color: 'var(--text-secondary)',
               fontSize: '15px',
-              backgroundColor: '#fafafa',
+              backgroundColor: 'var(--surface-2)',
               borderRadius: '16px',
-              border: '1px dashed #ddd'
+              border: '1px dashed var(--border-strong)'
             }}>
               Todavía no tienes cuentas radicadas en períodos anteriores.
             </div>
@@ -1095,7 +1095,7 @@ export const TechnicianPortal = () => {
             <>
               <div className="table-scroll table-wide desktop-only">
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead style={{ borderBottom: '1px solid #eee' }}>
+                  <thead style={{ borderBottom: '1px solid var(--border)' }}>
                     <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
                       <th style={{ padding: '16px 0', fontWeight: '500' }}>Mes</th>
                       <th style={{ padding: '16px 0', fontWeight: '500' }}>Servicios</th>
@@ -1318,7 +1318,7 @@ const HistoryRow = ({
   onSign: (c: CuentaApi) => void;
 }) => {
   return (
-    <tr style={{ borderBottom: '1px solid #f9f9f9' }}>
+    <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
       <td style={{ padding: '16px 0', fontSize: '14px', fontWeight: '600' }}>
         {nombreMes(cuenta.mes)} {cuenta.anio}
       </td>
@@ -1338,8 +1338,8 @@ const HistoryRow = ({
           style={{
             padding: '6px 12px',
             borderRadius: '8px',
-            border: '1px solid rgba(0,0,0,0.1)',
-            backgroundColor: 'white',
+            border: '1px solid var(--border)',
+            backgroundColor: 'var(--surface)',
             cursor: 'pointer',
             fontSize: '12px',
             fontWeight: '600'

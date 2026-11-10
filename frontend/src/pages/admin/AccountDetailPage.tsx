@@ -269,11 +269,11 @@ export const AccountDetailPage = () => {
               padding: '12px 16px',
               borderRadius: '10px',
               background: actionNotice.includes('No se pudo') || actionNotice.includes('error')
-                ? '#fff7ed'
-                : '#ecfdf5',
+                ? 'var(--warning-bg)'
+                : 'var(--success-bg)',
               color: actionNotice.includes('No se pudo') || actionNotice.includes('error')
-                ? '#9a3412'
-                : '#166534',
+                ? 'var(--warning-text)'
+                : 'var(--success-text)',
               fontSize: '14px',
             }}
           >
@@ -296,8 +296,8 @@ export const AccountDetailPage = () => {
               onClick={handleDescargarPdf}
               style={{
                 ...secondaryBtnStyle,
-                backgroundColor: 'var(--blue)',
-                color: 'white',
+                backgroundColor: 'var(--blue-solid)',
+                color: 'var(--on-accent)',
                 borderColor: 'transparent',
               }}
             >
@@ -348,7 +348,7 @@ export const AccountDetailPage = () => {
               gap: '16px',
               marginTop: '24px',
               paddingTop: '20px',
-              borderTop: '1px solid rgba(0,0,0,0.06)',
+              borderTop: '1px solid var(--border)',
             }}
           >
             <div style={infoBlockStyle}>
@@ -368,7 +368,7 @@ export const AccountDetailPage = () => {
             </div>
 
             <div style={infoBlockStyle}>
-              <Building2 size={16} style={{ color: account.tecnico_sede === 'Cucuta' ? '#9d174d' : '#1e40af' }} />
+              <Building2 size={16} style={{ color: account.tecnico_sede === 'Cucuta' ? 'var(--magenta-text)' : 'var(--info-text)' }} />
               <div>
                 <span style={infoLabelStyle}>Sede Asignada</span>
                 <span
@@ -377,7 +377,7 @@ export const AccountDetailPage = () => {
                     marginTop: '2px',
                     fontWeight: 700,
                     fontSize: '13px',
-                    color: account.tecnico_sede === 'Cucuta' ? '#9d174d' : '#1e40af',
+                    color: account.tecnico_sede === 'Cucuta' ? 'var(--magenta-text)' : 'var(--info-text)',
                   }}
                 >
                   {account.tecnico_sede === 'Cucuta' ? 'Sede Cúcuta' : 'Sede Bucaramanga'}
@@ -401,7 +401,7 @@ export const AccountDetailPage = () => {
             style={{
               marginTop: '20px',
               paddingTop: '16px',
-              borderTop: '1px solid rgba(0,0,0,0.06)',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -473,10 +473,10 @@ export const AccountDetailPage = () => {
 
             {/* Badges contadores */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={counterBadge('#e6f4ea', '#137333')}>Aprobados: {ordenesAprobadas}</span>
-              <span style={counterBadge('#fef7e0', '#b06000')}>Pendientes: {ordenesPendientes}</span>
-              {ordenesObservadas > 0 && <span style={counterBadge('#fff3e0', '#e65100')}>Observados: {ordenesObservadas}</span>}
-              {ordenesRechazadas > 0 && <span style={counterBadge('#fce8e6', '#c5221f')}>Rechazados: {ordenesRechazadas}</span>}
+              <span style={counterBadge('var(--success-bg)', 'var(--success-text)')}>Aprobados: {ordenesAprobadas}</span>
+              <span style={counterBadge('var(--warning-bg)', 'var(--warning-text)')}>Pendientes: {ordenesPendientes}</span>
+              {ordenesObservadas > 0 && <span style={counterBadge('var(--warning-bg)', 'var(--warning-text)')}>Observados: {ordenesObservadas}</span>}
+              {ordenesRechazadas > 0 && <span style={counterBadge('var(--danger-bg)', 'var(--danger-text)')}>Rechazados: {ordenesRechazadas}</span>}
             </div>
           </div>
 
@@ -486,7 +486,7 @@ export const AccountDetailPage = () => {
             <>
             <div className="table-scroll table-wide desktop-only">
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead style={{ borderBottom: '2px solid #edf2f7' }}>
+                <thead style={{ borderBottom: '2px solid var(--border)' }}>
                   <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
                     <th style={{ ...thStyle, width: '130px', minWidth: '130px' }}>Orden</th>
                     <th style={thStyle}>Tipo de Servicio</th>
@@ -505,10 +505,10 @@ export const AccountDetailPage = () => {
                       <tr
                         key={grupo.numeroOrden}
                         style={{
-                          borderBottom: '1px solid #f1f5f9',
+                          borderBottom: '1px solid var(--surface-3)',
                           transition: 'background 0.2s',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fafafa')}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-2)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {/* Número de orden con BUC/CUC completo para el admin */}
@@ -520,9 +520,9 @@ export const AccountDetailPage = () => {
                               borderRadius: '8px',
                               letterSpacing: '0.04em',
                               boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                              background: grupo.numeroOrden.includes('CUC') ? '#fdf2f8' : '#eff6ff',
-                              color: grupo.numeroOrden.includes('CUC') ? '#9d174d' : '#1e40af',
-                              border: `1px solid ${grupo.numeroOrden.includes('CUC') ? '#fbcfe8' : '#bfdbfe'}`,
+                              background: grupo.numeroOrden.includes('CUC') ? 'var(--magenta-bg)' : 'var(--info-bg)',
+                              color: grupo.numeroOrden.includes('CUC') ? 'var(--magenta-text)' : 'var(--info-text)',
+                              border: `1px solid ${grupo.numeroOrden.includes('CUC') ? 'var(--magenta-border)' : 'var(--info-border)'}`,
                             }}
                           >
                             {grupo.numeroOrden}
@@ -541,9 +541,9 @@ export const AccountDetailPage = () => {
                                   fontSize: '11px',
                                   padding: '2px 6px',
                                   borderRadius: '4px',
-                                  backgroundColor: '#f0fdf4',
-                                  color: '#166534',
-                                  border: '1px solid #bbf7d0',
+                                  backgroundColor: 'var(--success-bg)',
+                                  color: 'var(--success-text)',
+                                  border: '1px solid var(--success-border)',
                                   fontWeight: 600,
                                 }}
                               >
@@ -556,7 +556,7 @@ export const AccountDetailPage = () => {
                         <td style={{ ...tdStyle, color: 'var(--text-secondary)', maxWidth: '280px' }}>
                           <div>{s.descripcion_especifica || '—'}</div>
                           {hasTraslado && grupo.traslado?.descripcion_especifica && (
-                            <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--success-text)', marginTop: '2px' }}>
                               <strong>Destino:</strong> {grupo.traslado.descripcion_especifica}
                             </div>
                           )}
@@ -589,9 +589,9 @@ export const AccountDetailPage = () => {
                               onClick={() => setSelectedOrder(grupo)}
                               style={{
                                 ...actionMiniBtn,
-                                backgroundColor: '#f1f5f9',
+                                backgroundColor: 'var(--surface-3)',
                                 color: 'var(--ink)',
-                                borderColor: '#cbd5e1',
+                                borderColor: 'var(--border-strong)',
                                 fontWeight: 600,
                               }}
                             >
@@ -604,9 +604,9 @@ export const AccountDetailPage = () => {
                               onClick={() => void handleOpenServiceType(s)}
                               style={{
                                 ...actionMiniBtn,
-                                backgroundColor: '#f5f3ff',
-                                color: '#6d28d9',
-                                borderColor: '#ddd6fe',
+                                backgroundColor: 'var(--purple-bg)',
+                                color: 'var(--purple-text)',
+                                borderColor: 'var(--purple-border)',
                                 fontWeight: 600,
                               }}
                             >
@@ -628,9 +628,9 @@ export const AccountDetailPage = () => {
                               }
                               style={{
                                 ...actionMiniBtn,
-                                backgroundColor: grupo.estado === 'Aprobado' ? '#e6f4ea' : '#f0fdf4',
-                                color: '#166534',
-                                borderColor: '#bbf7d0',
+                                backgroundColor: grupo.estado === 'Aprobado' ? 'var(--success-bg)' : 'var(--success-bg)',
+                                color: 'var(--success-text)',
+                                borderColor: 'var(--success-border)',
                                 fontWeight: grupo.estado === 'Aprobado' ? 700 : 500,
                               }}
                             >
@@ -652,9 +652,9 @@ export const AccountDetailPage = () => {
                               }
                               style={{
                                 ...actionMiniBtn,
-                                backgroundColor: grupo.estado === 'Observado' ? '#fef3c7' : '#fffbeb',
-                                color: '#92400e',
-                                borderColor: '#fde68a',
+                                backgroundColor: grupo.estado === 'Observado' ? 'var(--warning-bg)' : 'var(--warning-bg)',
+                                color: 'var(--warning-text)',
+                                borderColor: 'var(--warning-border)',
                                 fontWeight: grupo.estado === 'Observado' ? 700 : 500,
                               }}
                             >
@@ -676,9 +676,9 @@ export const AccountDetailPage = () => {
                               }
                               style={{
                                 ...actionMiniBtn,
-                                backgroundColor: grupo.estado === 'Rechazado' ? '#fee2e2' : '#fef2f2',
-                                color: '#991b1b',
-                                borderColor: '#fecaca',
+                                backgroundColor: grupo.estado === 'Rechazado' ? 'var(--danger-bg)' : 'var(--danger-bg)',
+                                color: 'var(--danger-text)',
+                                borderColor: 'var(--danger-border)',
                                 fontWeight: grupo.estado === 'Rechazado' ? 700 : 500,
                               }}
                             >
@@ -697,12 +697,12 @@ export const AccountDetailPage = () => {
                 const s = grupo.servicioPrincipal;
                 const hasTraslado = !!grupo.traslado;
                 const statusColor = grupo.estado === 'Aprobado'
-                  ? '#15803d'
+                  ? 'var(--success-text)'
                   : grupo.estado === 'Observado'
-                    ? '#b45309'
+                    ? 'var(--warning-text)'
                     : grupo.estado === 'Rechazado'
-                      ? '#b91c1c'
-                      : '#1d4ed8';
+                      ? 'var(--danger-text)'
+                      : 'var(--info-text)';
 
                 return (
                   <article key={grupo.numeroOrden} className="admin-service-card" style={{ borderLeftColor: statusColor }}>
@@ -756,7 +756,7 @@ export const AccountDetailPage = () => {
                       <button
                         type="button"
                         className="admin-service-action approve"
-                        style={grupo.estado === 'Aprobado' ? { color: statusColor, backgroundColor: '#e6f4ea', borderColor: '#bbf7d0' } : undefined}
+                        style={grupo.estado === 'Aprobado' ? { color: statusColor, backgroundColor: 'var(--success-bg)', borderColor: 'var(--success-border)' } : undefined}
                         onClick={() => handleOpenAction(
                           'service',
                           s.id,
@@ -771,7 +771,7 @@ export const AccountDetailPage = () => {
                       <button
                         type="button"
                         className="admin-service-action observe"
-                        style={grupo.estado === 'Observado' ? { color: statusColor, backgroundColor: '#fef3c7', borderColor: '#fde68a' } : undefined}
+                        style={grupo.estado === 'Observado' ? { color: statusColor, backgroundColor: 'var(--warning-bg)', borderColor: 'var(--warning-border)' } : undefined}
                         onClick={() => handleOpenAction(
                           'service',
                           s.id,
@@ -786,7 +786,7 @@ export const AccountDetailPage = () => {
                       <button
                         type="button"
                         className="admin-service-action reject"
-                        style={grupo.estado === 'Rechazado' ? { color: statusColor, backgroundColor: '#fee2e2', borderColor: '#fecaca' } : undefined}
+                        style={grupo.estado === 'Rechazado' ? { color: statusColor, backgroundColor: 'var(--danger-bg)', borderColor: 'var(--danger-border)' } : undefined}
                         onClick={() => handleOpenAction(
                           'service',
                           s.id,
@@ -825,7 +825,7 @@ export const AccountDetailPage = () => {
               style={{
                 position: 'fixed',
                 inset: 0,
-                backgroundColor: 'rgba(0,0,0,0.45)',
+                backgroundColor: 'var(--scrim)',
                 backdropFilter: 'blur(3px)',
                 WebkitBackdropFilter: 'blur(3px)',
               }}
@@ -835,7 +835,7 @@ export const AccountDetailPage = () => {
               style={{
                 position: 'relative',
                 zIndex: 351,
-                background: 'white',
+                background: 'var(--surface)',
                 borderRadius: '24px',
                 padding: 'clamp(24px, 5vw, 32px)',
                 width: '100%',
@@ -854,9 +854,9 @@ export const AccountDetailPage = () => {
                         borderRadius: '8px',
                         fontWeight: 700,
                         fontSize: '15px',
-                        background: selectedOrder.numeroOrden.includes('CUC') ? '#fdf2f8' : '#eff6ff',
-                        color: selectedOrder.numeroOrden.includes('CUC') ? '#9d174d' : '#1e40af',
-                        border: `1px solid ${selectedOrder.numeroOrden.includes('CUC') ? '#fbcfe8' : '#bfdbfe'}`,
+                        background: selectedOrder.numeroOrden.includes('CUC') ? 'var(--magenta-bg)' : 'var(--info-bg)',
+                        color: selectedOrder.numeroOrden.includes('CUC') ? 'var(--magenta-text)' : 'var(--info-text)',
+                        border: `1px solid ${selectedOrder.numeroOrden.includes('CUC') ? 'var(--magenta-border)' : 'var(--info-border)'}`,
                       }}
                     >
                       {selectedOrder.numeroOrden}
@@ -872,7 +872,7 @@ export const AccountDetailPage = () => {
                   type="button"
                   onClick={() => setSelectedOrder(null)}
                   style={{
-                    background: '#f1f5f9',
+                    background: 'var(--surface-3)',
                     border: 'none',
                     borderRadius: '8px',
                     width: '32px',
@@ -889,7 +889,7 @@ export const AccountDetailPage = () => {
               </div>
 
               {/* Servicio Principal */}
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '14px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--surface-2)', borderRadius: '14px', marginBottom: '16px', border: '1px solid var(--border)' }}>
                 <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--blue)', letterSpacing: '0.04em' }}>
                   Servicio Realizado
                 </span>
@@ -900,7 +900,7 @@ export const AccountDetailPage = () => {
                   {formatCOP(selectedOrder.servicioPrincipal.valor_cobrado)}
                 </div>
 
-                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                     Descripción completa del servicio:
                   </span>
@@ -909,8 +909,8 @@ export const AccountDetailPage = () => {
                       marginTop: '6px',
                       padding: '12px',
                       borderRadius: '8px',
-                      backgroundColor: 'white',
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border)',
                       fontSize: '14px',
                       lineHeight: '1.5',
                       color: 'var(--ink)',
@@ -925,20 +925,20 @@ export const AccountDetailPage = () => {
 
               {/* Traslado si lo tiene */}
               {selectedOrder.traslado && (
-                <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '14px', marginBottom: '16px', border: '1px solid #bbf7d0' }}>
+                <div style={{ padding: '16px', backgroundColor: 'var(--success-bg)', borderRadius: '14px', marginBottom: '16px', border: '1px solid var(--success-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                    <Truck size={16} style={{ color: '#166534' }} />
-                    <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, color: '#166534', letterSpacing: '0.04em' }}>
+                    <Truck size={16} style={{ color: 'var(--success-text)' }} />
+                    <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--success-text)', letterSpacing: '0.04em' }}>
                       Traslado Adicional
                     </span>
                   </div>
-                  <h4 style={{ margin: '4px 0', fontSize: '15px', fontWeight: 600, color: '#166534' }}>
+                  <h4 style={{ margin: '4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--success-text)' }}>
                     {selectedOrder.traslado.tipo_servicio_nombre ?? 'Traslado'}
                   </h4>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--success-text)', marginBottom: '10px' }}>
                     {formatCOP(selectedOrder.traslado.valor_cobrado)}
                   </div>
-                  <div style={{ fontSize: '13px', color: '#14532d', backgroundColor: 'rgba(255,255,255,0.7)', padding: '8px 12px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--success-text)', backgroundColor: 'var(--glass-bg)', padding: '8px 12px', borderRadius: '8px' }}>
                     <strong>Destino y vehículo:</strong> {selectedOrder.traslado.descripcion_especifica || 'Registrado'}
                   </div>
                 </div>
@@ -949,7 +949,7 @@ export const AccountDetailPage = () => {
                   <h4 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--ink)' }}>Fotos de la orden ({selectedOrder.servicioPrincipal.fotos!.length})</h4>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
                     {selectedOrder.servicioPrincipal.fotos!.map((photo, index) => (
-                      <button key={`${index}-${photo.slice(-10)}`} type="button" onClick={() => setSelectedPhoto(photo)} aria-label={`Ampliar foto ${index + 1}`} style={{ padding: 0, border: '2px solid #cbd5e1', borderRadius: 9, background: 'white', cursor: 'zoom-in', overflow: 'hidden' }}>
+                      <button key={`${index}-${photo.slice(-10)}`} type="button" onClick={() => setSelectedPhoto(photo)} aria-label={`Ampliar foto ${index + 1}`} style={{ padding: 0, border: '2px solid var(--border-strong)', borderRadius: 9, background: 'var(--surface)', cursor: 'zoom-in', overflow: 'hidden' }}>
                         <img src={photo} alt={`Foto ${index + 1} de la orden ${selectedOrder.numeroOrden}`} style={{ display: 'block', width: 76, height: 76, objectFit: 'cover' }} />
                       </button>
                     ))}
@@ -961,22 +961,22 @@ export const AccountDetailPage = () => {
                 ...selectedOrder.servicioPrincipal.auditoria ?? [],
                 ...selectedOrder.traslado?.auditoria ?? [],
               ].length > 0 && (
-                <section style={{ marginBottom: 18, padding: 14, borderRadius: 12, background: '#f8fafc', border: '1px solid #dbe3ec' }}>
+                <section style={{ marginBottom: 18, padding: 14, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                   <h4 style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--ink)' }}>Historial de revisión</h4>
                   <div style={{ display: 'grid', gap: 10 }}>
                     {[
                       ...selectedOrder.servicioPrincipal.auditoria ?? [],
                       ...selectedOrder.traslado?.auditoria ?? [],
                     ].sort((a, b) => new Date(b.fecha_accion ?? 0).getTime() - new Date(a.fecha_accion ?? 0).getTime()).map((entry) => (
-                      <div key={entry.id} style={{ padding: '10px 11px', borderLeft: '3px solid #0057b8', borderRadius: '0 8px 8px 0', background: 'white' }}>
+                      <div key={entry.id} style={{ padding: '10px 11px', borderLeft: '3px solid var(--blue-solid)', borderRadius: '0 8px 8px 0', background: 'var(--surface)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 5 }}>
-                          <strong style={{ fontSize: 13, color: '#0f172a' }}>{entry.admin || 'Administrador'}</strong>
-                          <time style={{ fontSize: 12, color: '#475569', fontWeight: 600 }} dateTime={entry.fecha_accion ?? undefined}>{entry.fecha_accion ? new Date(entry.fecha_accion).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</time>
+                          <strong style={{ fontSize: 13, color: 'var(--text)' }}>{entry.admin || 'Administrador'}</strong>
+                          <time style={{ fontSize: 12, color: 'var(--text-slate)', fontWeight: 600 }} dateTime={entry.fecha_accion ?? undefined}>{entry.fecha_accion ? new Date(entry.fecha_accion).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</time>
                         </div>
-                        <div style={{ fontSize: 13, color: '#334155' }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-slate)' }}>
                           {entry.estado_anterior || 'Sin estado'} <strong aria-hidden="true">→</strong> <strong>{entry.estado_nuevo}</strong>
                         </div>
-                        {entry.observacion && <p style={{ margin: '5px 0 0', fontSize: 13, color: '#334155', lineHeight: 1.45 }}><strong>Cambio / nota:</strong> {entry.observacion}</p>}
+                        {entry.observacion && <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--text-slate)', lineHeight: 1.45 }}><strong>Cambio / nota:</strong> {entry.observacion}</p>}
                       </div>
                     ))}
                   </div>
@@ -984,7 +984,7 @@ export const AccountDetailPage = () => {
               )}
 
               {/* Total Orden */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: '#f1f5f9', borderRadius: '12px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--surface-3)', borderRadius: '12px', marginBottom: '20px' }}>
                 <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>Total Cobrado por esta Orden:</span>
                 <span style={{ fontWeight: 800, fontSize: '18px', color: 'var(--blue)' }}>{formatCOP(selectedOrder.totalValor)}</span>
               </div>
@@ -998,7 +998,7 @@ export const AccountDetailPage = () => {
                   padding: '12px',
                   borderRadius: '12px',
                   backgroundColor: 'var(--ink)',
-                  color: 'white',
+                  color: 'var(--on-accent)',
                   border: 'none',
                   fontWeight: 600,
                   fontSize: '14px',
@@ -1017,9 +1017,9 @@ export const AccountDetailPage = () => {
             aria-modal="true"
             aria-label="Vista ampliada de foto"
             onClick={() => setSelectedPhoto(null)}
-            style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(5, 10, 20, .88)', cursor: 'zoom-out' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'grid', placeItems: 'center', padding: 24, background: 'var(--scrim)', cursor: 'zoom-out' }}
           >
-            <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Cerrar foto" style={{ position: 'absolute', top: 18, right: 18, width: 42, height: 42, borderRadius: '50%', border: '1px solid rgba(255,255,255,.45)', background: 'rgba(255,255,255,.12)', color: 'white', fontSize: 25, cursor: 'pointer' }}>×</button>
+            <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Cerrar foto" style={{ position: 'absolute', top: 18, right: 18, width: 42, height: 42, borderRadius: '50%', border: '1px solid var(--glass-border)', background: 'var(--glass-border)', color: 'var(--on-accent)', fontSize: 25, cursor: 'pointer' }}>×</button>
             <img src={selectedPhoto} alt="Foto ampliada de la orden" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 'min(100%, 1200px)', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, cursor: 'default' }} />
           </div>
         )}
@@ -1089,7 +1089,7 @@ export const AccountDetailPage = () => {
               style={{
                 position: 'fixed',
                 inset: 0,
-                backgroundColor: 'rgba(0,0,0,0.45)',
+                backgroundColor: 'var(--scrim)',
                 backdropFilter: 'blur(3px)',
                 WebkitBackdropFilter: 'blur(3px)',
               }}
@@ -1099,7 +1099,7 @@ export const AccountDetailPage = () => {
               style={{
                 position: 'relative',
                 zIndex: 301,
-                background: 'white',
+                background: 'var(--surface)',
                 borderRadius: '24px',
                 padding: 'clamp(24px, 5vw, 36px)',
                 width: '100%',
@@ -1135,7 +1135,7 @@ export const AccountDetailPage = () => {
                       marginTop: '6px',
                       padding: '10px 12px',
                       borderRadius: '10px',
-                      border: '1px solid rgba(0,0,0,0.15)',
+                      border: '1px solid var(--border)',
                       fontSize: '14px',
                       fontFamily: 'inherit',
                       outline: 'none',
@@ -1149,8 +1149,8 @@ export const AccountDetailPage = () => {
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(211,47,47,0.1)',
-                      color: '#d32f2f',
+                      background: 'var(--danger-bg)',
+                      color: 'var(--danger-text)',
                       fontSize: '13px',
                       marginBottom: '16px',
                     }}
@@ -1167,8 +1167,8 @@ export const AccountDetailPage = () => {
                       flex: 1,
                       padding: '10px',
                       borderRadius: '10px',
-                      border: '1px solid rgba(0,0,0,0.15)',
-                      background: 'white',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}
@@ -1183,15 +1183,15 @@ export const AccountDetailPage = () => {
                       padding: '10px',
                       borderRadius: '10px',
                       border: 'none',
-                      color: 'white',
+                      color: 'var(--on-accent)',
                       fontWeight: 600,
                       cursor: submitting ? 'wait' : 'pointer',
                       background:
                         target.action === 'Aprobado'
-                          ? '#16a34a'
+                          ? 'var(--success-solid)'
                           : target.action === 'Observado'
-                            ? '#d97706'
-                            : '#dc2626',
+                            ? 'var(--warning-text)'
+                            : 'var(--danger-text)',
                     }}
                   >
                     {submitting ? 'Guardando…' : `Confirmar ${target.action}`}
@@ -1214,8 +1214,8 @@ const backBtnStyle: React.CSSProperties = {
   gap: '8px',
   padding: '8px 14px',
   borderRadius: '10px',
-  border: '1px solid rgba(0,0,0,0.1)',
-  backgroundColor: 'white',
+  border: '1px solid var(--border)',
+  backgroundColor: 'var(--surface)',
   color: 'var(--ink)',
   fontWeight: 600,
   fontSize: '14px',
@@ -1228,8 +1228,8 @@ const secondaryBtnStyle: React.CSSProperties = {
   gap: '6px',
   padding: '8px 14px',
   borderRadius: '10px',
-  border: '1px solid rgba(0,0,0,0.1)',
-  backgroundColor: 'white',
+  border: '1px solid var(--border)',
+  backgroundColor: 'var(--surface)',
   color: 'var(--ink)',
   fontWeight: 600,
   fontSize: '13px',
@@ -1237,20 +1237,20 @@ const secondaryBtnStyle: React.CSSProperties = {
 };
 
 const headerCardStyle: React.CSSProperties = {
-  backgroundColor: 'white',
+  backgroundColor: 'var(--surface)',
   borderRadius: '24px',
   padding: '28px',
   boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-  border: '1px solid rgba(0,0,0,0.05)',
+  border: '1px solid var(--border)',
   marginBottom: '24px',
 };
 
 const sectionCardStyle: React.CSSProperties = {
-  backgroundColor: 'white',
+  backgroundColor: 'var(--surface)',
   borderRadius: '24px',
   padding: '28px',
   boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-  border: '1px solid rgba(0,0,0,0.05)',
+  border: '1px solid var(--border)',
 };
 
 const infoBlockStyle: React.CSSProperties = {
@@ -1290,10 +1290,10 @@ const obsNoteStyle: React.CSSProperties = {
   marginTop: '6px',
   padding: '4px 8px',
   borderRadius: '6px',
-  backgroundColor: '#fffbeb',
-  color: '#b45309',
+  backgroundColor: 'var(--warning-bg)',
+  color: 'var(--warning-text)',
   fontSize: '12px',
-  border: '1px solid #fef3c7',
+  border: '1px solid var(--warning-bg)',
 };
 
 const actionMiniBtn: React.CSSProperties = {
@@ -1312,8 +1312,8 @@ const approveBtnStyle: React.CSSProperties = {
   padding: '8px 14px',
   borderRadius: '10px',
   border: 'none',
-  backgroundColor: '#16a34a',
-  color: 'white',
+  backgroundColor: 'var(--success-solid)',
+  color: 'var(--on-accent)',
   fontSize: '13px',
   fontWeight: 600,
   cursor: 'pointer',
@@ -1325,9 +1325,9 @@ const approveBtnStyle: React.CSSProperties = {
 const observeBtnStyle: React.CSSProperties = {
   padding: '8px 14px',
   borderRadius: '10px',
-  border: '1px solid #f59e0b',
-  backgroundColor: '#fffbeb',
-  color: '#b45309',
+  border: '1px solid var(--warning)',
+  backgroundColor: 'var(--warning-bg)',
+  color: 'var(--warning-text)',
   fontSize: '13px',
   fontWeight: 600,
   cursor: 'pointer',
@@ -1340,8 +1340,8 @@ const rejectBtnStyle: React.CSSProperties = {
   padding: '8px 14px',
   borderRadius: '10px',
   border: 'none',
-  backgroundColor: '#dc2626',
-  color: 'white',
+  backgroundColor: 'var(--danger-solid)',
+  color: 'var(--on-accent)',
   fontSize: '13px',
   fontWeight: 600,
   cursor: 'pointer',
@@ -1363,15 +1363,15 @@ const emptyBoxStyle: React.CSSProperties = {
   padding: '40px',
   textAlign: 'center',
   color: 'var(--text-secondary)',
-  backgroundColor: '#fafafa',
+  backgroundColor: 'var(--surface-2)',
   borderRadius: '16px',
-  border: '1px dashed #ddd',
+  border: '1px dashed var(--border-strong)',
 };
 
 const errorCardStyle: React.CSSProperties = {
   padding: '24px',
   borderRadius: '16px',
-  backgroundColor: '#ffebeb',
-  color: '#d32f2f',
+  backgroundColor: 'var(--danger-bg)',
+  color: 'var(--danger-text)',
   marginTop: '20px',
 };

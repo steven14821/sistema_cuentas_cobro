@@ -4,10 +4,10 @@ import type { EstadoServicio } from '../services/technicianApi';
 export type EstaBadgeStyle = EstadoServicio | 'Pendiente';
 
 export const ESTADO_BADGE_STYLES: Record<EstaBadgeStyle, { bg: string; color: string }> = {
-  Aprobado: { bg: '#e2f9e1', color: '#2d8a39' },
-  Rechazado: { bg: '#ffebeb', color: '#d32f2f' },
-  Observado: { bg: '#fff6e0', color: '#7a5c00' },
-  Pendiente: { bg: '#f0f7ff', color: '#0057B8' },
+  Aprobado: { bg: 'var(--success-bg)', color: 'var(--success-text)' },
+  Rechazado: { bg: 'var(--danger-bg)', color: 'var(--danger-text)' },
+  Observado: { bg: 'var(--warning-bg)', color: 'var(--warning-text)' },
+  Pendiente: { bg: 'var(--info-bg)', color: 'var(--blue)' },
 };
 
 export const estadoBadgeStyle = (estado?: EstaBadgeStyle) =>

@@ -613,12 +613,12 @@ export const RegistroFlujoModal = ({
 
         <div style={ticketBodyStyle}>
           {items.map((it, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '14px', gap: '8px', padding: '9px 10px', borderRadius: 9, background: /puerta|ayudante|adicional/i.test(it.label) ? '#e0edff' : 'white', border: '1px solid #dbe5f0' }}>
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '14px', gap: '8px', padding: '9px 10px', borderRadius: 9, background: /puerta|ayudante|adicional/i.test(it.label) ? 'var(--info-bg)' : 'var(--surface)', border: '1px solid var(--border)' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: '700', color: 'var(--ink)' }}>{it.label}</div>
-                {it.sub && <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>{it.sub}</div>}
+                {it.sub && <div style={{ fontSize: '12px', color: 'var(--text-slate)', fontWeight: 600 }}>{it.sub}</div>}
               </div>
-              <span style={{ fontWeight: '800', color: '#073d78', whiteSpace: 'nowrap' }}>
+              <span style={{ fontWeight: '800', color: 'var(--blue-solid)', whiteSpace: 'nowrap' }}>
                 {formatCOP(it.valor)}
               </span>
             </div>
@@ -678,13 +678,13 @@ export const RegistroFlujoModal = ({
                   type="button"
                   onClick={() => orderPhotoInput.current?.click()}
                   disabled={ocrLoading}
-                  style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid #bfdbfe', borderRadius: 9, background: '#eff6ff', color: '#1d4ed8', padding: '8px 11px', fontSize: 12, fontWeight: 700, cursor: ocrLoading ? 'wait' : 'pointer' }}
+                  style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--info-border)', borderRadius: 9, background: 'var(--info-bg)', color: 'var(--info-text)', padding: '8px 11px', fontSize: 12, fontWeight: 700, cursor: ocrLoading ? 'wait' : 'pointer' }}
                 >
                   <ScanLine size={15} />
                   {ocrLoading ? 'Leyendo imagen…' : 'Leer orden desde una foto'}
                 </button>
-                <p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>El análisis se realiza en este dispositivo; la foto no se envía al servidor. La primera vez puede descargar el motor de lectura.</p>
-                {ocrMessage && <p role="status" style={{ margin: 0, color: '#1d4ed8', fontSize: 12 }}>{ocrMessage}</p>}
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 11 }}>El análisis se realiza en este dispositivo; la foto no se envía al servidor. La primera vez puede descargar el motor de lectura.</p>
+                {ocrMessage && <p role="status" style={{ margin: 0, color: 'var(--info-text)', fontSize: 12 }}>{ocrMessage}</p>}
                 <input
                   type="text"
                   inputMode="numeric"
@@ -709,7 +709,7 @@ export const RegistroFlujoModal = ({
                 </p>}
                 {recentOrders.length > 0 && (
                   <div style={{ marginTop: 5 }}>
-                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#475569' }}>Órdenes recientes para consultar</p>
+                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: 'var(--text-slate)' }}>Órdenes recientes para consultar</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                       {recentOrders.slice(0, 8).map((order) => <span key={order} style={recentOrderStyle}>{order}</span>)}
                     </div>
@@ -732,8 +732,8 @@ export const RegistroFlujoModal = ({
                       style={{
                         padding: '10px 4px',
                         borderRadius: '10px',
-                        border: marcaSeleccionada === m ? '2px solid var(--blue)' : '1px solid rgba(0,0,0,0.12)',
-                        background: marcaSeleccionada === m ? 'rgba(0,87,184,0.06)' : 'white',
+                        border: marcaSeleccionada === m ? '2px solid var(--blue)' : '1px solid var(--border-strong)',
+                        background: marcaSeleccionada === m ? 'var(--blue-bg)' : 'var(--surface)',
                         color: marcaSeleccionada === m ? 'var(--blue)' : 'var(--ink)',
                         fontWeight: marcaSeleccionada === m ? '700' : '500',
                         fontSize: '12px',
@@ -813,7 +813,7 @@ export const RegistroFlujoModal = ({
               </div>
 
               {esRecogidaNevecon && (
-                <fieldset style={{ margin: 0, padding: 14, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}>
+                <fieldset style={{ margin: 0, padding: 14, borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
                   <legend style={{ padding: '0 6px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Recogida de nevecon</legend>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <label htmlFor="doors-removed" style={checkboxLabelStyle}>¿Desmontaste puertas?</label>
@@ -858,7 +858,7 @@ export const RegistroFlujoModal = ({
                         {desmontoPuertas && !cantidadPuertasValida && (
                           <p role="alert" style={fieldErrorStyle}>Escribe un número entero de 1 a 4.</p>
                         )}
-                        <p style={{ margin: 0, fontSize: 12, color: '#475569' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-slate)' }}>
                           {puertasDesmontadas > 0 ? `${formatCOP(puertasDesmontadas * 10_000)} adicionales` : 'El adicional es de $10.000 por puerta.'}
                         </p>
                       </div>
@@ -868,7 +868,7 @@ export const RegistroFlujoModal = ({
               )}
 
               {esRecoleccionConAyudanteOpcional && (
-                <fieldset style={{ margin: 0, padding: 14, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}>
+                <fieldset style={{ margin: 0, padding: 14, borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
                   <legend style={{ padding: '0 6px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Apoyo para la recolección</legend>
                   <label htmlFor="helper-required" style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>¿Tuviste ayudante?</label>
                   <select
@@ -902,19 +902,19 @@ export const RegistroFlujoModal = ({
                         style={{ ...inputStyle, resize: 'vertical' }}
                         required
                       />
-                      <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Describe brevemente el motivo (máximo 300 caracteres).</p>
+                      <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>Describe brevemente el motivo (máximo 300 caracteres).</p>
                     </div>
                   )}
                 </fieldset>
               )}
 
               {requiereFotoPuertas && (
-                <div style={{ padding: 14, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}>
+                <div style={{ padding: 14, borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                     <label htmlFor="door-photos" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
                       Fotos del desmonte (obligatorias)
                     </label>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{fotosPuertas.length}/10</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-slate)' }}>{fotosPuertas.length}/10</span>
                   </div>
                   <input
                     ref={puertasPhotoInput}
@@ -931,14 +931,14 @@ export const RegistroFlujoModal = ({
                   <button type="button" onClick={() => puertasPhotoInput.current?.click()} disabled={saving || fotosPuertas.length + fotosAyudante.length >= 10} style={photoAddStyle}>
                       {saving ? 'Optimizando fotos…' : '+ Agregar fotos'}
                   </button>
-                  <p style={{ margin: '7px 0 0', color: '#64748b', fontSize: 11 }}>
+                  <p style={{ margin: '7px 0 0', color: 'var(--text-muted)', fontSize: 11 }}>
                     Sube al menos una foto que muestre las puertas desmontadas. Se aceptan fotos de hasta 50 MB y se optimizan antes de guardarlas.
                   </p>
                   {fotosPuertas.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginTop: 12 }}>
                       {fotosPuertas.map((foto, index) => (
                         <div key={`${index}-${foto.slice(-12)}`} style={{ position: 'relative' }}>
-                          <img src={foto} alt={`Foto de puertas desmontadas ${index + 1}`} style={{ width: 66, height: 66, objectFit: 'cover', borderRadius: 9, border: '1px solid #cbd5e1' }} />
+                          <img src={foto} alt={`Foto de puertas desmontadas ${index + 1}`} style={{ width: 66, height: 66, objectFit: 'cover', borderRadius: 9, border: '1px solid var(--border-strong)' }} />
                           <button type="button" onClick={() => setFotosPuertas((actuales) => actuales.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Eliminar foto de puertas ${index + 1}`} style={photoDeleteStyle}>×</button>
                         </div>
                       ))}
@@ -948,10 +948,10 @@ export const RegistroFlujoModal = ({
               )}
 
               {requiereFotoAyudante && (
-                <div style={{ padding: 14, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}>
+                <div style={{ padding: 14, borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                     <label htmlFor="helper-photos" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Foto del motivo del ayudante (obligatoria)</label>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{fotosAyudante.length}/10</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-slate)' }}>{fotosAyudante.length}/10</span>
                   </div>
                   <input
                     ref={ayudantePhotoInput}
@@ -968,12 +968,12 @@ export const RegistroFlujoModal = ({
                   <button type="button" onClick={() => ayudantePhotoInput.current?.click()} disabled={saving || fotosPuertas.length + fotosAyudante.length >= 10} style={photoAddStyle}>
                     {saving ? 'Optimizando fotos…' : '+ Agregar evidencia del ayudante'}
                   </button>
-                  <p style={{ margin: '7px 0 0', color: '#64748b', fontSize: 11 }}>Sube al menos una foto que evidencie por qué fue necesario el apoyo. Se aceptan fotos de hasta 50 MB y se optimizan antes de guardarlas.</p>
+                  <p style={{ margin: '7px 0 0', color: 'var(--text-muted)', fontSize: 11 }}>Sube al menos una foto que evidencie por qué fue necesario el apoyo. Se aceptan fotos de hasta 50 MB y se optimizan antes de guardarlas.</p>
                   {fotosAyudante.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginTop: 12 }}>
                       {fotosAyudante.map((foto, index) => (
                         <div key={`${index}-${foto.slice(-12)}`} style={{ position: 'relative' }}>
-                          <img src={foto} alt={`Evidencia del ayudante ${index + 1}`} style={{ width: 66, height: 66, objectFit: 'cover', borderRadius: 9, border: '1px solid #cbd5e1' }} />
+                          <img src={foto} alt={`Evidencia del ayudante ${index + 1}`} style={{ width: 66, height: 66, objectFit: 'cover', borderRadius: 9, border: '1px solid var(--border-strong)' }} />
                           <button type="button" onClick={() => setFotosAyudante((actuales) => actuales.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Eliminar evidencia del ayudante ${index + 1}`} style={photoDeleteStyle}>×</button>
                         </div>
                       ))}
@@ -986,17 +986,17 @@ export const RegistroFlujoModal = ({
               {renderTicket(ticketItems, tipoValor + totalAdicionales)}
 
               {error && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', backgroundColor: 'rgba(211,47,47,0.08)', border: '1px solid rgba(211,47,47,0.3)', color: '#b3261e', fontSize: '13px', fontWeight: '500' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', backgroundColor: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', fontSize: '13px', fontWeight: '500' }}>
                   <AlertCircle size={15} style={{ flexShrink: 0 }} />
                   {error}
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                <button type="button" onClick={handleCancelar} style={{ flex: 1, padding: '12px', borderRadius: '11px', border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: 'var(--ink)', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
+                <button type="button" onClick={handleCancelar} style={{ flex: 1, padding: '12px', borderRadius: '11px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
                   Guardar borrador y salir
                 </button>
-                <button type="button" onClick={handleSiguienteServicio} disabled={saving} style={{ flex: 1, padding: '12px', borderRadius: '11px', border: 'none', background: saving ? 'var(--text-secondary)' : 'var(--blue)', color: 'white', fontWeight: '600', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>
+                <button type="button" onClick={handleSiguienteServicio} disabled={saving} style={{ flex: 1, padding: '12px', borderRadius: '11px', border: 'none', background: saving ? 'var(--text-secondary)' : 'var(--blue-solid)', color: 'var(--on-accent)', fontWeight: '600', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>
                   {saving ? 'Guardando servicio…' : 'Continuar a traslado'}
                 </button>
               </div>
@@ -1060,8 +1060,8 @@ export const RegistroFlujoModal = ({
                     flex: 1,
                     padding: '12px 14px',
                     borderRadius: '11px',
-                    border: '1px solid rgba(0,0,0,0.12)',
-                    background: 'white',
+                    border: '1px solid var(--border-strong)',
+                    background: 'var(--surface)',
                     color: 'var(--ink)',
                     fontWeight: '600',
                     fontSize: '14px',
@@ -1077,7 +1077,7 @@ export const RegistroFlujoModal = ({
                 </button>
               </div>
 
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '14px' }}>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
                 <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
                   Sí hubo traslado:
                 </span>
@@ -1097,8 +1097,8 @@ export const RegistroFlujoModal = ({
                     style={{
                       padding: '12px',
                       borderRadius: '11px',
-                      border: transportType === 'MOTO_PROPIA' ? '2px solid var(--blue)' : '1px solid rgba(0,0,0,0.12)',
-                      background: transportType === 'MOTO_PROPIA' ? 'rgba(0,87,184,0.06)' : 'white',
+                      border: transportType === 'MOTO_PROPIA' ? '2px solid var(--blue)' : '1px solid var(--border-strong)',
+                      background: transportType === 'MOTO_PROPIA' ? 'var(--blue-bg)' : 'var(--surface)',
                       color: transportType === 'MOTO_PROPIA' ? 'var(--blue)' : 'var(--ink)',
                       fontWeight: transportType === 'MOTO_PROPIA' ? '700' : '500',
                       fontSize: '14px',
@@ -1122,8 +1122,8 @@ export const RegistroFlujoModal = ({
                       style={{
                         padding: '12px',
                         borderRadius: '11px',
-                        border: transportType === 'EMPRESA' ? '2px solid var(--blue)' : '1px solid rgba(0,0,0,0.12)',
-                        background: transportType === 'EMPRESA' ? 'rgba(0,87,184,0.06)' : 'white',
+                        border: transportType === 'EMPRESA' ? '2px solid var(--blue)' : '1px solid var(--border-strong)',
+                        background: transportType === 'EMPRESA' ? 'var(--blue-bg)' : 'var(--surface)',
                         color: transportType === 'EMPRESA' ? 'var(--blue)' : 'var(--ink)',
                         fontWeight: transportType === 'EMPRESA' ? '700' : '500',
                         fontSize: '14px',
@@ -1166,10 +1166,10 @@ export const RegistroFlujoModal = ({
 
               {/* Ticket con cálculo en tiempo real */}
               {renderTicket(items, totalConTraslado)}
-              {quoteLoading && <p role="status" style={{ margin: 0, color: '#475569', fontSize: 12 }}>Calculando tarifa exacta del traslado…</p>}
+              {quoteLoading && <p role="status" style={{ margin: 0, color: 'var(--text-slate)', fontSize: 12 }}>Calculando tarifa exacta del traslado…</p>}
 
               {error && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', backgroundColor: 'rgba(211,47,47,0.08)', border: '1px solid rgba(211,47,47,0.3)', color: '#b3261e', fontSize: '13px', fontWeight: '500' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', backgroundColor: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', fontSize: '13px', fontWeight: '500' }}>
                   <AlertCircle size={15} style={{ flexShrink: 0 }} />
                   {error}
                 </div>
@@ -1185,8 +1185,8 @@ export const RegistroFlujoModal = ({
                     padding: '12px',
                     borderRadius: '11px',
                     border: 'none',
-                    background: saving || !lugarId || quoteLoading || transferQuote === null ? 'var(--text-secondary)' : 'var(--blue)',
-                    color: 'white',
+                    background: saving || !lugarId || quoteLoading || transferQuote === null ? 'var(--text-secondary)' : 'var(--blue-solid)',
+                    color: 'var(--on-accent)',
                     fontWeight: '700',
                     fontSize: '14px',
                     cursor: saving || !lugarId || quoteLoading || transferQuote === null ? 'not-allowed' : 'pointer',
@@ -1229,7 +1229,7 @@ export const RegistroFlujoModal = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {renderTicket(finalItems, total)}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', background: '#e6f4ea', border: '1px solid #ceead6', color: '#137333', fontSize: '13px', fontWeight: '500' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', color: 'var(--success-text)', fontSize: '13px', fontWeight: '500' }}>
                 <Check size={18} style={{ flexShrink: 0 }} />
                 <span>Servicio y traslado guardados y totalizados en tu cuenta.</span>
               </div>
@@ -1246,8 +1246,8 @@ export const RegistroFlujoModal = ({
                     padding: '12px',
                     borderRadius: '11px',
                     border: 'none',
-                    background: 'var(--blue)',
-                    color: 'white',
+                    background: 'var(--blue-solid)',
+                    color: 'var(--on-accent)',
                     fontWeight: '700',
                     fontSize: '14px',
                     cursor: 'pointer',
@@ -1326,8 +1326,8 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '12px 14px',
   borderRadius: '10px',
-  border: '1px solid rgba(0,0,0,0.15)',
-  background: 'white',
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
   color: 'var(--ink)',
   fontSize: '14px',
   outline: 'none',
@@ -1337,7 +1337,7 @@ const inputStyle: React.CSSProperties = {
 const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  backgroundColor: 'rgba(0,0,0,0.45)',
+  backgroundColor: 'var(--scrim)',
   backdropFilter: 'blur(3px)',
   WebkitBackdropFilter: 'blur(3px)',
   zIndex: 1,
@@ -1348,7 +1348,7 @@ const modalStyle: React.CSSProperties = {
   zIndex: 2,
   width: '100%',
   maxWidth: '520px',
-  background: 'white',
+  background: 'var(--surface)',
   borderRadius: '20px',
   boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
   maxHeight: '90vh',
@@ -1361,8 +1361,8 @@ const bodyStyle: React.CSSProperties = {
 
 // Estilos del Ticket de compra
 const ticketContainerStyle: React.CSSProperties = {
-  backgroundColor: '#edf4fc',
-  border: '1px solid #9db8d8',
+  backgroundColor: 'var(--info-bg)',
+  border: '1px solid var(--info-border)',
   borderRadius: '14px',
   padding: '16px',
 };
@@ -1372,7 +1372,7 @@ const ticketHeaderStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'center',
   paddingBottom: '10px',
-  borderBottom: '1px solid #b6c8dc',
+  borderBottom: '1px solid var(--info-border)',
   marginBottom: '12px',
 };
 
@@ -1388,7 +1388,7 @@ const ticketTotalStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'center',
   paddingTop: '10px',
-  borderTop: '2px solid #7189a6',
+  borderTop: '2px solid var(--info-border)',
 };
 
 const checkboxLabelStyle: React.CSSProperties = {
@@ -1400,7 +1400,7 @@ const checkboxLabelStyle: React.CSSProperties = {
   fontWeight: 600,
   cursor: 'pointer',
 };
-const fieldErrorStyle: React.CSSProperties = { margin: '2px 0 0', fontSize: 12, color: '#b42318', fontWeight: 600 };
-const recentOrderStyle: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, background: '#e2e8f0', color: '#334155', fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
-const photoAddStyle: React.CSSProperties = { padding: '8px 11px', borderRadius: 8, border: '1px solid #94a3b8', background: 'white', color: '#1e3a5f', fontSize: 12, fontWeight: 700, cursor: 'pointer' };
-const photoDeleteStyle: React.CSSProperties = { position: 'absolute', top: -6, right: -6, width: 21, height: 21, borderRadius: '50%', border: '1px solid white', background: '#b42318', color: 'white', fontSize: 16, lineHeight: 1, fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 5px rgba(0,0,0,.25)' };
+const fieldErrorStyle: React.CSSProperties = { margin: '2px 0 0', fontSize: 12, color: 'var(--danger-text)', fontWeight: 600 };
+const recentOrderStyle: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, background: 'var(--border)', color: 'var(--text-slate)', fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
+const photoAddStyle: React.CSSProperties = { padding: '8px 11px', borderRadius: 8, border: '1px solid var(--text-muted)', background: 'var(--surface)', color: 'var(--text-slate)', fontSize: 12, fontWeight: 700, cursor: 'pointer' };
+const photoDeleteStyle: React.CSSProperties = { position: 'absolute', top: -6, right: -6, width: 21, height: 21, borderRadius: '50%', border: '1px solid var(--on-accent)', background: 'var(--danger-solid)', color: 'var(--on-accent)', fontSize: 16, lineHeight: 1, fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 5px rgba(0,0,0,.25)' };

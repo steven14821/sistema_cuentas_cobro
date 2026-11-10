@@ -62,8 +62,8 @@ export const Dashboard = () => {
             style={{
               padding: '11px 16px',
               borderRadius: '12px',
-              border: '1px solid rgba(0,0,0,0.1)',
-              background: 'white',
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
               color: 'var(--ink)',
               fontWeight: 600,
               fontSize: '14px',
@@ -83,9 +83,9 @@ export const Dashboard = () => {
             style={{
               padding: '12px 16px',
               borderRadius: '12px',
-              backgroundColor: 'rgba(245,196,0,0.15)',
-              border: '1px solid rgba(245,196,0,0.45)',
-              color: '#7a5c00',
+              backgroundColor: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              color: 'var(--warning-text)',
               fontSize: '14px',
               fontWeight: 500,
               marginBottom: '24px',
@@ -114,7 +114,7 @@ export const Dashboard = () => {
             label="Pagos Aprobados"
             value={loading ? '—' : formatCOP(v?.aprobado ?? 0)}
             hint={`${c?.aprobadas ?? 0} cuenta(s) aprobada(s)`}
-            color="#2d8a39"
+            color="var(--success-text)"
           />
           <StatCard
             label="Cuentas Radicadas"
@@ -126,7 +126,7 @@ export const Dashboard = () => {
             label="Requieren Atención"
             value={loading ? '—' : String((c?.observadas ?? 0) + (c?.rechazadas ?? 0))}
             hint={`${c?.observadas ?? 0} observada(s) · ${c?.rechazadas ?? 0} rechazada(s)`}
-            color="#ff3b30"
+            color="var(--danger)"
           />
         </div>
 
@@ -143,9 +143,9 @@ export const Dashboard = () => {
             padding: '18px 22px',
             marginBottom: 24,
             borderRadius: 16,
-            border: '1px solid #fed7aa',
-            background: '#fff7ed',
-            color: '#7c2d12',
+            border: '1px solid var(--warning-border)',
+            background: 'var(--warning-bg)',
+            color: 'var(--warning-text)',
             textAlign: 'left',
             cursor: 'pointer',
           }}
@@ -168,11 +168,11 @@ export const Dashboard = () => {
           {/* Recent accounts table */}
           <div
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--surface)',
               borderRadius: '24px',
               padding: '24px',
               boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-              border: '1px solid rgba(0,0,0,0.05)',
+              border: '1px solid var(--border)',
             }}
           >
             <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '20px' }}>
@@ -186,7 +186,7 @@ export const Dashboard = () => {
               <div className="table-scroll">
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ color: 'var(--text-secondary)', fontSize: '13px', borderBottom: '1px solid #eee' }}>
+                    <tr style={{ color: 'var(--text-secondary)', fontSize: '13px', borderBottom: '1px solid var(--border)' }}>
                       <th style={{ padding: '12px 0', fontWeight: '500' }}>Técnico</th>
                       <th style={{ padding: '12px 0', fontWeight: '500' }}>Período</th>
                       <th style={{ padding: '12px 0', fontWeight: '500' }}>Monto</th>
@@ -197,9 +197,9 @@ export const Dashboard = () => {
                     {data.recientes.map((r) => (
                       <tr
                         key={r.id}
-                        style={{ borderBottom: '1px solid #f9f9f9', transition: 'background 0.2s', cursor: 'pointer' }}
+                        style={{ borderBottom: '1px solid var(--surface-2)', transition: 'background 0.2s', cursor: 'pointer' }}
                         onClick={() => navigate('/admin/review')}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fcfcfc')}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-2)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         <td style={{ padding: '16px 0', fontSize: '14px', fontWeight: 500 }}>{r.tecnico ?? '—'}</td>
@@ -222,10 +222,10 @@ export const Dashboard = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div
               style={{
-                backgroundColor: 'var(--blue)',
+                backgroundColor: 'var(--blue-solid)',
                 borderRadius: '24px',
                 padding: '24px',
-                color: 'white',
+                color: 'var(--on-accent)',
                 boxShadow: '0 10px 20px rgba(0, 87, 184, 0.2)',
               }}
             >
@@ -241,7 +241,7 @@ export const Dashboard = () => {
                   padding: '12px',
                   borderRadius: '12px',
                   border: 'none',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--surface)',
                   color: 'var(--blue)',
                   fontWeight: '600',
                   cursor: 'pointer',
@@ -258,10 +258,10 @@ export const Dashboard = () => {
 
             <div
               style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--surface)',
                 borderRadius: '24px',
                 padding: '24px',
-                border: '1px solid rgba(0,0,0,0.05)',
+                border: '1px solid var(--border)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
               }}
             >
@@ -304,11 +304,11 @@ const StatCard = ({
 }) => (
   <div
     style={{
-      backgroundColor: 'white',
+      backgroundColor: 'var(--surface)',
       borderRadius: '24px',
       padding: '24px',
       boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-      border: '1px solid rgba(0,0,0,0.05)',
+      border: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
       gap: '8px',
@@ -327,9 +327,9 @@ const EmptyMsg = ({ children }: { children: React.ReactNode }) => (
       textAlign: 'center',
       color: 'var(--text-secondary)',
       fontSize: '15px',
-      backgroundColor: '#fafafa',
+      backgroundColor: 'var(--surface-2)',
       borderRadius: '16px',
-      border: '1px dashed #ddd',
+      border: '1px dashed var(--border-strong)',
     }}
   >
     {children}
@@ -342,9 +342,9 @@ const Alert = ({ message, type }: { message: string; type: 'warning' | 'info' })
       padding: '12px',
       borderRadius: '12px',
       fontSize: '13px',
-      backgroundColor: type === 'warning' ? 'rgba(255, 159, 10, 0.1)' : 'rgba(0, 87, 184, 0.05)',
-      color: type === 'warning' ? '#b47a00' : 'var(--blue)',
-      borderLeft: `4px solid ${type === 'warning' ? '#ff9f0a' : 'var(--blue)'}`,
+      backgroundColor: type === 'warning' ? 'var(--warning-bg)' : 'var(--blue-bg)',
+      color: type === 'warning' ? 'var(--warning-text)' : 'var(--blue)',
+      borderLeft: `4px solid ${type === 'warning' ? 'var(--warning)' : 'var(--blue)'}`,
     }}
   >
     {message}

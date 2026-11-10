@@ -6,6 +6,29 @@
     <meta name="theme-color" content="#0057b8" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>E&M Electronic Solutions</title>
+    <script>
+      // Aplica el tema antes del primer pintado para evitar el "flash" blanco.
+      // Debe reflejar la lógica de src/context/ThemeContext.tsx.
+      (function () {
+        try {
+          var mode = localStorage.getItem('em_theme_mode') || 'auto';
+          var resolved;
+          if (mode === 'light') resolved = 'light';
+          else if (mode === 'dark') resolved = 'dark';
+          else if (mode === 'system')
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          else {
+            var h = new Date().getHours();
+            resolved = h >= 19 || h < 7 ? 'dark' : 'light';
+          }
+          var root = document.documentElement;
+          root.setAttribute('data-theme', resolved);
+          root.style.colorScheme = resolved;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0B0E13' : '#0057b8');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

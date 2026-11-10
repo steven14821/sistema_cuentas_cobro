@@ -246,7 +246,7 @@ export const AdminReviewPage = () => {
           style={{
             display: 'flex',
             gap: '4px',
-            backgroundColor: 'rgba(0,0,0,0.04)',
+            backgroundColor: 'var(--surface-hover)',
             padding: '4px',
             borderRadius: '14px',
             marginBottom: '24px',
@@ -267,7 +267,7 @@ export const AdminReviewPage = () => {
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: tab === t.id ? 600 : 500,
-                backgroundColor: tab === t.id ? 'white' : 'transparent',
+                backgroundColor: tab === t.id ? 'var(--surface)' : 'transparent',
                 color: tab === t.id ? 'var(--ink)' : 'var(--text-secondary)',
                 boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               }}
@@ -279,7 +279,7 @@ export const AdminReviewPage = () => {
                     marginLeft: '6px',
                     padding: '1px 7px',
                     borderRadius: '10px',
-                    background: tab === t.id ? '#e0edff' : 'rgba(0,0,0,0.08)',
+                    background: tab === t.id ? 'var(--info-bg)' : 'var(--surface-hover)',
                     color: tab === t.id ? 'var(--blue)' : 'var(--text-secondary)',
                     fontSize: '11px',
                     fontWeight: 700,
@@ -349,11 +349,11 @@ export const AdminReviewPage = () => {
 
             <div
               style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--surface)',
                 borderRadius: '24px',
                 padding: '24px',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                border: '1px solid rgba(0,0,0,0.05)',
+                border: '1px solid var(--border)',
               }}
             >
               <h3 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 20px 0' }}>
@@ -387,7 +387,7 @@ export const AdminReviewPage = () => {
                           key={a.id}
                           style={{ ...tbodyRow, cursor: 'pointer' }}
                           onClick={() => navigate(`/admin/cuentas/${a.id}`)}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8faff')}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-2)')}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
                           <td style={{ ...td, fontWeight: 600 }}>{a.tecnico ?? '—'}</td>
@@ -399,9 +399,9 @@ export const AdminReviewPage = () => {
                                   borderRadius: '6px',
                                   fontSize: '12px',
                                   fontWeight: 600,
-                                  backgroundColor: a.tecnico_sede === 'Cucuta' ? '#fdf2f8' : '#eff6ff',
-                                  color: a.tecnico_sede === 'Cucuta' ? '#9d174d' : '#1e40af',
-                                  border: `1px solid ${a.tecnico_sede === 'Cucuta' ? '#fbcfe8' : '#bfdbfe'}`,
+                                  backgroundColor: a.tecnico_sede === 'Cucuta' ? 'var(--magenta-bg)' : 'var(--info-bg)',
+                                  color: a.tecnico_sede === 'Cucuta' ? 'var(--magenta-text)' : 'var(--info-text)',
+                                  border: `1px solid ${a.tecnico_sede === 'Cucuta' ? 'var(--magenta-border)' : 'var(--info-border)'}`,
                                 }}
                                 >
                                   {a.tecnico_sede === 'Cucuta' ? 'CUC' : 'BUC'}
@@ -413,7 +413,7 @@ export const AdminReviewPage = () => {
                             {a.estado !== 'Aprobado' && a.fecha_creacion && (
                               <div style={{
                                 marginTop: 4,
-                                color: Date.now() - new Date(a.fecha_creacion).getTime() >= 3 * 86_400_000 ? '#b91c1c' : '#64748b',
+                                color: Date.now() - new Date(a.fecha_creacion).getTime() >= 3 * 86_400_000 ? 'var(--danger-text)' : 'var(--text-muted)',
                                 fontSize: 11,
                                 fontWeight: 600,
                               }}>
@@ -468,11 +468,11 @@ export const AdminReviewPage = () => {
         {tab === 'excepciones' && (
           <div
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--surface)',
               borderRadius: '24px',
               padding: '24px',
               boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-              border: '1px solid rgba(0,0,0,0.05)',
+              border: '1px solid var(--border)',
             }}
           >
             <h3 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 6px 0' }}>
@@ -511,8 +511,8 @@ export const AdminReviewPage = () => {
                                 borderRadius: '6px',
                                 fontSize: '12px',
                                 fontWeight: 600,
-                                backgroundColor: vigente ? '#e6f4ea' : '#f5f5f5',
-                                color: vigente ? '#137333' : '#9e9e9e',
+                                backgroundColor: vigente ? 'var(--success-bg)' : 'var(--surface-2)',
+                                color: vigente ? 'var(--success-text)' : 'var(--text-secondary)',
                               }}
                             >
                               {vence.toLocaleDateString('es-CO')}
@@ -533,9 +533,9 @@ export const AdminReviewPage = () => {
                                 padding: '6px 12px',
                                 fontSize: '12px',
                                 fontWeight: 500,
-                                color: '#d93025',
-                                backgroundColor: '#fce8e6',
-                                border: '1px solid #fad2cf',
+                                color: 'var(--danger-text)',
+                                backgroundColor: 'var(--danger-bg)',
+                                border: '1px solid var(--danger-border)',
                                 borderRadius: '8px',
                                 cursor: deletingExceptionId === e.id ? 'not-allowed' : 'pointer',
                                 opacity: deletingExceptionId === e.id ? 0.6 : 1,
@@ -598,9 +598,9 @@ const Empty = ({ children }: { children: React.ReactNode }) => (
       textAlign: 'center',
       color: 'var(--text-secondary)',
       fontSize: '15px',
-      backgroundColor: '#fafafa',
+      backgroundColor: 'var(--surface-2)',
       borderRadius: '16px',
-      border: '1px dashed #ddd',
+      border: '1px dashed var(--border-strong)',
     }}
   >
     {children}
@@ -627,8 +627,8 @@ const primaryBtn: React.CSSProperties = {
 const secondaryBtn: React.CSSProperties = {
   padding: '11px 16px',
   borderRadius: '12px',
-  border: '1px solid rgba(0,0,0,0.1)',
-  background: 'white',
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
   color: 'var(--ink)',
   fontWeight: 600,
   fontSize: '14px',
@@ -641,11 +641,11 @@ const secondaryBtn: React.CSSProperties = {
 const filterSelectStyle: React.CSSProperties = {
   padding: '8px 12px',
   borderRadius: '10px',
-  border: '1px solid rgba(0,0,0,0.1)',
+  border: '1px solid var(--border)',
   fontSize: '13px',
   outline: 'none',
   cursor: 'pointer',
-  background: 'white',
+  background: 'var(--surface)',
 };
 
 const reviewBtn: React.CSSProperties = {
@@ -662,9 +662,9 @@ const reviewBtn: React.CSSProperties = {
 const errorBox: React.CSSProperties = {
   padding: '12px 16px',
   borderRadius: '12px',
-  backgroundColor: 'rgba(245,196,0,0.15)',
-  border: '1px solid rgba(245,196,0,0.45)',
-  color: '#7a5c00',
+  backgroundColor: 'var(--warning-bg)',
+  border: '1px solid var(--warning-border)',
+  color: 'var(--warning-text)',
   fontSize: '14px',
   fontWeight: 500,
   marginBottom: '16px',
@@ -679,20 +679,20 @@ const tableStyle: React.CSSProperties = {
 const theadRow: React.CSSProperties = {
   color: 'var(--text-secondary)',
   fontSize: '13px',
-  borderBottom: '1px solid #eee',
+  borderBottom: '1px solid var(--border)',
 };
 
-const tbodyRow: React.CSSProperties = { borderBottom: '1px solid #f9f9f9', transition: 'background 0.15s' };
+const tbodyRow: React.CSSProperties = { borderBottom: '1px solid var(--surface-2)', transition: 'background 0.15s' };
 
 const th: React.CSSProperties = { padding: '14px 0', fontWeight: 500 };
 
 const td: React.CSSProperties = { padding: '14px 0', fontSize: '14px' };
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: 'white',
+  backgroundColor: 'var(--surface)',
   borderRadius: '16px',
   padding: '16px',
-  border: '1px solid rgba(0,0,0,0.08)',
+  border: '1px solid var(--border)',
   boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
   cursor: 'pointer',
   marginBottom: '12px',

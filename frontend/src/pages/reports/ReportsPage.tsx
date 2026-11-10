@@ -180,8 +180,8 @@ export const ReportsPage = () => {
               padding: '12px 24px',
               borderRadius: '12px',
               border: 'none',
-              backgroundColor: sinTecnico ? 'var(--text-secondary)' : 'var(--blue)',
-              color: 'white',
+              backgroundColor: sinTecnico ? 'var(--text-secondary)' : 'var(--blue-solid)',
+              color: 'var(--on-accent)',
               fontWeight: '600',
               cursor: sinTecnico ? 'not-allowed' : 'pointer',
               boxShadow: '0 4px 12px rgba(0, 87, 184, 0.2)',
@@ -198,11 +198,11 @@ export const ReportsPage = () => {
         {/* Configuración */}
         <div
           style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--surface)',
             borderRadius: '24px',
             padding: 'clamp(20px, 4vw, 32px)',
             boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-            border: '1px solid rgba(0,0,0,0.05)',
+            border: '1px solid var(--border)',
             marginBottom: '32px',
           }}
         >
@@ -260,9 +260,9 @@ export const ReportsPage = () => {
             style={{
               padding: '12px 16px',
               borderRadius: '12px',
-              backgroundColor: 'rgba(245,196,0,0.15)',
-              border: '1px solid rgba(245,196,0,0.45)',
-              color: '#7a5c00',
+              backgroundColor: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              color: 'var(--warning-text)',
               fontSize: '14px',
               fontWeight: 500,
               marginBottom: '24px',
@@ -275,11 +275,11 @@ export const ReportsPage = () => {
         {/* Vista previa */}
         <div
           style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--surface)',
             borderRadius: '24px',
             padding: '24px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-            border: '1px solid rgba(0,0,0,0.05)',
+            border: '1px solid var(--border)',
           }}
         >
           <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '20px' }}>Vista Previa de Datos</h3>
@@ -295,7 +295,7 @@ export const ReportsPage = () => {
               <div className="table-scroll table-wide">
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ color: 'var(--text-secondary)', fontSize: '13px', borderBottom: '1px solid #eee' }}>
+                    <tr style={{ color: 'var(--text-secondary)', fontSize: '13px', borderBottom: '1px solid var(--border)' }}>
                       {report.columns.map((c) => (
                         <th key={c.key} style={{ padding: '14px 0', fontWeight: 500, textAlign: c.align ?? 'left' }}>
                           {c.header}
@@ -305,7 +305,7 @@ export const ReportsPage = () => {
                   </thead>
                   <tbody>
                     {report.rows.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid var(--surface-2)' }}>
                         {report.columns.map((c) => (
                           <td
                             key={c.key}
@@ -360,8 +360,8 @@ const Placeholder = ({ children }: { children: React.ReactNode }) => (
       width: '100%',
       minHeight: '200px',
       borderRadius: '16px',
-      backgroundColor: '#f9f9f9',
-      border: '1px dashed #ddd',
+      backgroundColor: 'var(--surface-2)',
+      border: '1px dashed var(--border-strong)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -378,10 +378,10 @@ const labelStyle: React.CSSProperties = { fontSize: '13px', fontWeight: 500, col
 const inputStyle: React.CSSProperties = {
   padding: '12px',
   borderRadius: '12px',
-  border: '1px solid rgba(0,0,0,0.1)',
+  border: '1px solid var(--border)',
   fontSize: '15px',
   outline: 'none',
-  background: 'white',
+  background: 'var(--surface)',
   color: 'var(--ink)',
 };
 
@@ -389,9 +389,9 @@ const formatoBtn = (active: boolean): React.CSSProperties => ({
   flex: 1,
   padding: '12px',
   borderRadius: '12px',
-  border: `1px solid ${active ? 'var(--blue)' : 'rgba(0,0,0,0.1)'}`,
-  backgroundColor: active ? 'var(--blue)' : 'white',
-  color: active ? 'white' : 'var(--ink)',
+  border: `1px solid ${active ? 'var(--blue)' : 'var(--border)'}`,
+  backgroundColor: active ? 'var(--blue-solid)' : 'var(--surface)',
+  color: active ? 'var(--on-accent)' : 'var(--ink)',
   fontWeight: '600',
   cursor: 'pointer',
 });

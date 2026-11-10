@@ -14,13 +14,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
+import { ThemeToggle } from '../components/ThemeToggle';
 import type { UserRow } from '../services/adminApi';
 
 const searchItemStyle: React.CSSProperties = {
   display: 'block',
   padding: '10px 12px',
   color: 'var(--text-secondary)',
-  background: 'white',
+  background: 'var(--surface)',
   fontSize: 12,
 };
 
@@ -87,7 +88,7 @@ export const MainLayout = ({ children }) => {
     <div className="app-shell" style={{
       display: 'flex',
       width: '100%',
-      backgroundColor: '#F5F5F7',
+      backgroundColor: 'var(--bg)',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       overflow: 'hidden'
     }}>
@@ -109,10 +110,10 @@ export const MainLayout = ({ children }) => {
       {/* Sidebar - Apple Style (cajón deslizante en móvil) */}
       <aside className={`app-sidebar${menuOpen ? ' open' : ''}`} style={{
         width: '260px',
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: 'var(--glass-bg)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        borderRight: '1px solid rgba(0,0,0,0.08)',
+        borderRight: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
         padding: '24px 16px',
@@ -143,7 +144,7 @@ export const MainLayout = ({ children }) => {
             <label htmlFor="technician-quick-search" style={{ display: 'block', margin: '0 8px 7px', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
               Buscar técnico
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', borderRadius: 10, border: '1px solid rgba(0,0,0,.12)', background: 'white' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
               <Search size={15} color="var(--text-secondary)" />
               <input
                 id="technician-quick-search"
@@ -157,7 +158,7 @@ export const MainLayout = ({ children }) => {
               />
             </div>
             {searchOpen && techSearch.trim() && (
-              <div role="listbox" aria-label="Resultados de técnicos" style={{ position: 'absolute', zIndex: 30, top: '100%', left: 4, right: 4, marginTop: 6, overflow: 'hidden', borderRadius: 12, background: 'white', boxShadow: '0 14px 35px rgba(0,0,0,.15)', border: '1px solid #e5e7eb' }}>
+              <div role="listbox" aria-label="Resultados de técnicos" style={{ position: 'absolute', zIndex: 30, top: '100%', left: 4, right: 4, marginTop: 6, overflow: 'hidden', borderRadius: 12, background: 'var(--surface)', boxShadow: '0 14px 35px rgba(0,0,0,.15)', border: '1px solid var(--border)' }}>
                 {searchLoading ? <div style={searchItemStyle}>Buscando…</div> : searchResults.length === 0 ? <div style={searchItemStyle}>No se encontraron técnicos.</div> : searchResults.map((candidate) => (
                   <button
                     key={candidate.id}
@@ -189,7 +190,8 @@ export const MainLayout = ({ children }) => {
           ))}
         </nav>
 
-        <div style={{ marginTop: 'auto', padding: '0 12px' }}>
+        <div style={{ marginTop: 'auto', padding: '0 12px', display: 'grid', gap: 18 }}>
+          <ThemeToggle />
           <button
             onClick={handleLogout}
             style={{
@@ -197,7 +199,7 @@ export const MainLayout = ({ children }) => {
               padding: '12px',
               borderRadius: '12px',
               border: 'none',
-              backgroundColor: 'rgba(0,0,0,0.04)',
+              backgroundColor: 'var(--surface-hover)',
               color: 'var(--ink)',
               cursor: 'pointer',
               fontSize: '13px',
@@ -248,10 +250,10 @@ const NavItem = ({ icon: Icon, label, path, active = false, onNavigate }: {
       color: 'var(--ink)',
       fontWeight: active ? '600' : '400',
       fontSize: '14px',
-      backgroundColor: active ? 'rgba(0, 87, 184, 0.08)' : 'transparent'
+      backgroundColor: active ? 'var(--blue-bg)' : 'transparent'
     }}
-    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
-    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = active ? 'rgba(0, 87, 184, 0.08)' : 'transparent'}
+    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
+    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = active ? 'var(--blue-bg)' : 'transparent'}
   >
     <Icon size={18} strokeWidth={2} style={{ flexShrink: 0, color: active ? 'var(--blue)' : 'var(--text-secondary)' }} />
     <span>{label}</span>

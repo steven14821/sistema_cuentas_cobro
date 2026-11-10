@@ -103,7 +103,7 @@ export const UserCreateModal = ({
         style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.45)',
+          backgroundColor: 'var(--scrim)',
           backdropFilter: 'blur(3px)',
           WebkitBackdropFilter: 'blur(3px)',
         }}
@@ -113,7 +113,7 @@ export const UserCreateModal = ({
         style={{
           position: 'relative',
           zIndex: 301,
-          background: 'white',
+          background: 'var(--surface)',
           borderRadius: '24px',
           padding: 'clamp(24px, 6vw, 40px)',
           width: '100%',
@@ -148,7 +148,7 @@ export const UserCreateModal = ({
 
         {generatedPassword ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ padding: '14px', borderRadius: '12px', background: '#ecfdf3', color: '#166534', fontSize: '14px' }}>
+            <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--success-bg)', color: 'var(--success-text)', fontSize: '14px' }}>
               Usuario creado. Copia esta contraseña y compártela con el usuario; no volverá a mostrarse.
             </div>
             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
@@ -157,13 +157,13 @@ export const UserCreateModal = ({
             </label>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="button" onClick={copyPassword} style={buttonStyle}>{copied ? 'Copiada' : 'Copiar contraseña'}</button>
-              <button type="button" onClick={onClose} style={{ ...buttonStyle, background: 'var(--blue)', color: 'white' }}>Listo</button>
+              <button type="button" onClick={onClose} style={{ ...buttonStyle, background: 'var(--blue-solid)', color: 'var(--on-accent)' }}>Listo</button>
             </div>
           </div>
         ) : created ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ padding: '14px', borderRadius: '12px', background: '#ecfdf3', color: '#166534', fontSize: '14px' }}>Usuario creado correctamente.</div>
-            <button type="button" onClick={onClose} style={{ ...buttonStyle, background: 'var(--blue)', color: 'white' }}>Listo</button>
+            <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--success-bg)', color: 'var(--success-text)', fontSize: '14px' }}>Usuario creado correctamente.</div>
+            <button type="button" onClick={onClose} style={{ ...buttonStyle, background: 'var(--blue-solid)', color: 'var(--on-accent)' }}>Listo</button>
           </div>
         ) : <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -177,10 +177,10 @@ export const UserCreateModal = ({
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
-                  border: '1px solid rgba(0,0,0,0.1)',
+                  border: '1px solid var(--border)',
                   fontSize: '15px',
                   outline: 'none',
-                  background: 'rgba(255,255,255,0.85)',
+                  background: 'var(--glass-bg)',
                 }}
               />
             </div>
@@ -192,10 +192,10 @@ export const UserCreateModal = ({
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
-                  border: '1px solid rgba(0,0,0,0.1)',
+                  border: '1px solid var(--border)',
                   fontSize: '15px',
                   outline: 'none',
-                  background: 'rgba(255,255,255,0.85)',
+                  background: 'var(--glass-bg)',
                   color: 'var(--ink)',
                 }}
               >
@@ -216,10 +216,10 @@ export const UserCreateModal = ({
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
-                  border: '1px solid rgba(0,0,0,0.1)',
+                  border: '1px solid var(--border)',
                   fontSize: '15px',
                   outline: 'none',
-                  background: 'rgba(255,255,255,0.85)',
+                  background: 'var(--glass-bg)',
                   width: '100%',
                   marginTop: '6px',
                   color: 'var(--ink)',
@@ -242,10 +242,10 @@ export const UserCreateModal = ({
               style={{
                 padding: '10px 12px',
                 borderRadius: '10px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: '1px solid var(--border)',
                 fontSize: '15px',
                 outline: 'none',
-                background: 'rgba(255,255,255,0.85)',
+                background: 'var(--glass-bg)',
                 width: '100%',
               }}
             />
@@ -261,10 +261,10 @@ export const UserCreateModal = ({
               style={{
                 padding: '10px 12px',
                 borderRadius: '10px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: '1px solid var(--border)',
                 fontSize: '15px',
                 outline: 'none',
-                background: 'rgba(255,255,255,0.85)',
+                background: 'var(--glass-bg)',
                 width: '100%',
               }}
             />
@@ -291,10 +291,10 @@ export const UserCreateModal = ({
               style={{
                 padding: '10px 12px',
                 borderRadius: '10px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: '1px solid var(--border)',
                 fontSize: '15px',
                 outline: 'none',
-                background: form.generatePassword ? '#f1f5f9' : 'rgba(255,255,255,0.85)',
+                background: form.generatePassword ? 'var(--surface-3)' : 'var(--glass-bg)',
                 width: '100%',
               }}
             />
@@ -311,10 +311,10 @@ export const UserCreateModal = ({
               style={{
                 padding: '10px 12px',
                 borderRadius: '10px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: '1px solid var(--border)',
                 fontSize: '15px',
                 outline: 'none',
-                background: 'rgba(255,255,255,0.85)',
+                background: 'var(--glass-bg)',
                 width: '100%',
               }}
             />
@@ -325,9 +325,9 @@ export const UserCreateModal = ({
               style={{
                 padding: '10px 12px',
                 borderRadius: '10px',
-                background: 'rgba(245,196,0,0.15)',
-                border: '1px solid rgba(245,196,0,0.45)',
-                color: '#7a5c00',
+                background: 'var(--warning-bg)',
+                border: '1px solid var(--warning-border)',
+                color: 'var(--warning-text)',
                 fontSize: '13px',
                 fontWeight: 500,
               }}
@@ -344,8 +344,8 @@ export const UserCreateModal = ({
                 flex: 1,
                 padding: '11px',
                 borderRadius: '11px',
-                border: '1px solid rgba(0,0,0,0.12)',
-                background: 'white',
+                border: '1px solid var(--border-strong)',
+                background: 'var(--surface)',
                 color: 'var(--ink)',
                 fontWeight: 600,
                 fontSize: '14px',
@@ -385,7 +385,7 @@ const credentialInputStyle: React.CSSProperties = {
   display: 'block',
   width: '100%',
   padding: '12px',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '9px',
   color: 'var(--ink)',
   fontSize: '16px',
@@ -395,8 +395,8 @@ const buttonStyle: React.CSSProperties = {
   flex: 1,
   padding: '11px',
   borderRadius: '11px',
-  border: '1px solid rgba(0,0,0,0.12)',
-  background: 'white',
+  border: '1px solid var(--border-strong)',
+  background: 'var(--surface)',
   color: 'var(--ink)',
   fontWeight: 600,
   cursor: 'pointer',

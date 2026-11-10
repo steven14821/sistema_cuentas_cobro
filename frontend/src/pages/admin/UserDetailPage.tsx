@@ -151,10 +151,10 @@ export const UserDetailPage = () => {
             </button>
           </div>
 
-          {error && <div role="alert" style={messageStyle('#fef2f2', '#b91c1c')}>{error}</div>}
-          {notice && <div role="status" style={messageStyle('#ecfdf3', '#166534')}>{notice}</div>}
+          {error && <div role="alert" style={messageStyle('var(--danger-bg)', 'var(--danger-text)')}>{error}</div>}
+          {notice && <div role="status" style={messageStyle('var(--success-bg)', 'var(--success-text)')}>{notice}</div>}
           {user.motivo_inactivacion && (
-            <div style={messageStyle('#fff7ed', '#9a3412')}>Último motivo de desactivación: {user.motivo_inactivacion}</div>
+            <div style={messageStyle('var(--warning-bg)', 'var(--warning-text)')}>Último motivo de desactivación: {user.motivo_inactivacion}</div>
           )}
 
           <form onSubmit={save} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16 }}>
@@ -178,7 +178,7 @@ export const UserDetailPage = () => {
             </div>
           </form>
 
-          <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 28, paddingTop: 22 }}>
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 28, paddingTop: 22 }}>
             <h2 style={{ fontSize: 18, margin: '0 0 6px' }}>Acceso</h2>
             {user.rol === 'Tecnico' && (
               <>
@@ -216,7 +216,7 @@ export const UserDetailPage = () => {
             <button type="button" onClick={() => void resetPassword()} style={secondaryButton}><KeyRound size={15} /> Generar contraseña aleatoria</button>
             {password && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
-                <code style={{ padding: '10px 12px', background: '#f1f5f9', borderRadius: 8, fontSize: 16 }}>{password}</code>
+                <code style={{ padding: '10px 12px', background: 'var(--surface-3)', borderRadius: 8, fontSize: 16 }}>{password}</code>
                 <button type="button" onClick={async () => { await navigator.clipboard.writeText(password); setCopied(true); }} style={secondaryButton}>
                   <Copy size={14} /> {copied ? 'Copiada' : 'Copiar'}
                 </button>
@@ -249,13 +249,13 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     {React.cloneElement(children as React.ReactElement, { style: fieldControl })}
   </label>
 );
-const fieldControl: React.CSSProperties = { width: '100%', padding: '11px 12px', borderRadius: 9, border: '1px solid #cbd5e1', color: 'var(--ink)', fontSize: 14, fontFamily: 'inherit' };
-const cardStyle: React.CSSProperties = { background: 'white', borderRadius: 20, padding: 26, border: '1px solid #e5e7eb', boxShadow: '0 8px 26px rgba(0,0,0,.04)' };
-const primaryButton: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: 0, borderRadius: 9, padding: '11px 14px', background: 'var(--blue)', color: 'white', fontWeight: 650, cursor: 'pointer' };
-const secondaryButton: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: '1px solid #cbd5e1', borderRadius: 9, padding: '10px 13px', background: 'white', color: 'var(--ink)', fontWeight: 600, cursor: 'pointer' };
-const dangerButton: React.CSSProperties = { ...primaryButton, background: '#b42318' };
-const backStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #d1d5db', borderRadius: 9, padding: '9px 12px', background: 'white', cursor: 'pointer', color: 'var(--ink)' };
-const avatarStyle: React.CSSProperties = { width: 48, height: 48, display: 'grid', placeItems: 'center', borderRadius: 15, background: '#eff6ff', color: 'var(--blue)' };
+const fieldControl: React.CSSProperties = { width: '100%', padding: '11px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', color: 'var(--ink)', fontSize: 14, fontFamily: 'inherit' };
+const cardStyle: React.CSSProperties = { background: 'var(--surface)', borderRadius: 20, padding: 26, border: '1px solid var(--border)', boxShadow: '0 8px 26px rgba(0,0,0,.04)' };
+const primaryButton: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: 0, borderRadius: 9, padding: '11px 14px', background: 'var(--blue-solid)', color: 'var(--on-accent)', fontWeight: 650, cursor: 'pointer' };
+const secondaryButton: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: '1px solid var(--border-strong)', borderRadius: 9, padding: '10px 13px', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, cursor: 'pointer' };
+const dangerButton: React.CSSProperties = { ...primaryButton, background: 'var(--danger-solid)' };
+const backStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', borderRadius: 9, padding: '9px 12px', background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink)' };
+const avatarStyle: React.CSSProperties = { width: 48, height: 48, display: 'grid', placeItems: 'center', borderRadius: 15, background: 'var(--info-bg)', color: 'var(--blue)' };
 const messageStyle = (background: string, color: string): React.CSSProperties => ({ padding: '11px 13px', marginBottom: 14, borderRadius: 9, background, color, fontSize: 14 });
-const modalBackdrop: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 500, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(0,0,0,.42)' };
-const dialogStyle: React.CSSProperties = { width: 'min(100%, 440px)', background: 'white', borderRadius: 18, padding: 24, boxShadow: '0 24px 60px rgba(0,0,0,.2)' };
+const modalBackdrop: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 500, display: 'grid', placeItems: 'center', padding: 16, background: 'var(--scrim)' };
+const dialogStyle: React.CSSProperties = { width: 'min(100%, 440px)', background: 'var(--surface)', borderRadius: 18, padding: 24, boxShadow: '0 24px 60px rgba(0,0,0,.2)' };

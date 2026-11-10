@@ -83,11 +83,11 @@ export const UserList = ({
   return (
     <div
       style={{
-        backgroundColor: 'white',
+        backgroundColor: 'var(--surface)',
         borderRadius: '24px',
         padding: '24px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-        border: '1px solid rgba(0,0,0,0.05)',
+        border: '1px solid var(--border)',
       }}
     >
       {actionError && (
@@ -95,9 +95,9 @@ export const UserList = ({
           style={{
             padding: '12px 16px',
             borderRadius: '12px',
-            backgroundColor: 'rgba(211,47,47,0.1)',
-            border: '1px solid rgba(211,47,47,0.3)',
-            color: '#d32f2f',
+            backgroundColor: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            color: 'var(--danger-text)',
             fontSize: '13px',
             fontWeight: 500,
             marginBottom: '16px',
@@ -114,7 +114,7 @@ export const UserList = ({
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              color: '#d32f2f',
+              color: 'var(--danger-text)',
               fontWeight: 700,
               padding: '0 4px',
             }}
@@ -126,7 +126,7 @@ export const UserList = ({
 
       <div className="table-scroll table-wide" style={{ borderRadius: '12px', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead style={{ borderBottom: '1px solid #eee' }}>
+          <thead style={{ borderBottom: '1px solid var(--border)' }}>
             <tr style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
               <th style={{ padding: '14px 0', fontWeight: 500 }}>Usuario</th>
               <th style={{ padding: '14px 0', fontWeight: 500 }}>Nombre</th>
@@ -146,11 +146,11 @@ export const UserList = ({
                 <tr
                   key={u.id}
                   style={{
-                    borderBottom: '1px solid #f6f6f6',
+                    borderBottom: '1px solid var(--surface-2)',
                     transition: 'background 0.2s',
                     opacity: isDeleting ? 0.5 : 1,
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fafafa')}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-2)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   <td style={{ padding: '14px 0', fontSize: '14px', fontWeight: 500 }}>
@@ -166,8 +166,8 @@ export const UserList = ({
                         style={{
                           marginLeft: '8px',
                           fontSize: '11px',
-                          background: '#e0f2fe',
-                          color: '#0369a1',
+                          background: 'var(--info-bg)',
+                          color: 'var(--info-text)',
                           padding: '2px 6px',
                           borderRadius: '6px',
                           fontWeight: 600,
@@ -198,11 +198,11 @@ export const UserList = ({
                       style={{
                         padding: '5px 8px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(0,0,0,0.1)',
+                        border: '1px solid var(--border)',
                         fontSize: '13px',
                         fontWeight: 600,
                         color: 'var(--blue)',
-                        background: u.rol === 'Admin' ? '#fff6e0' : '#f0f7ff',
+                        background: u.rol === 'Admin' ? 'var(--warning-bg)' : 'var(--info-bg)',
                         outline: 'none',
                         cursor: isSelf ? 'not-allowed' : 'pointer',
                         opacity: isSelf ? 0.7 : 1,
@@ -220,9 +220,9 @@ export const UserList = ({
                           padding: '4px 8px',
                           borderRadius: '6px',
                           fontWeight: 600,
-                          backgroundColor: u.sede === 'Cucuta' ? '#fdf2f8' : '#eff6ff',
-                          color: u.sede === 'Cucuta' ? '#9d174d' : '#1e40af',
-                          border: `1px solid ${u.sede === 'Cucuta' ? '#fbcfe8' : '#bfdbfe'}`,
+                          backgroundColor: u.sede === 'Cucuta' ? 'var(--magenta-bg)' : 'var(--info-bg)',
+                          color: u.sede === 'Cucuta' ? 'var(--magenta-text)' : 'var(--info-text)',
+                          border: `1px solid ${u.sede === 'Cucuta' ? 'var(--magenta-border)' : 'var(--info-border)'}`,
                         }}
                       >
                         {u.sede === 'Cucuta' ? 'Cúcuta (CUC)' : 'Bucaramanga (BUC)'}
@@ -239,8 +239,8 @@ export const UserList = ({
                       style={{
                         padding: '5px 10px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(0,0,0,0.1)',
-                        background: u.activo ? 'rgba(0,87,184,0.08)' : '#f0f0f0',
+                        border: '1px solid var(--border)',
+                        background: u.activo ? 'var(--blue-bg)' : 'var(--surface-3)',
                         color: u.activo ? 'var(--blue)' : 'var(--text-secondary)',
                         fontWeight: 600,
                         fontSize: '12px',
@@ -281,9 +281,9 @@ export const UserList = ({
                           style={{
                             padding: '5px 8px',
                             borderRadius: '8px',
-                            border: '1px solid rgba(211,47,47,0.3)',
+                            border: '1px solid var(--danger-border)',
                             background: 'transparent',
-                            color: '#d32f2f',
+                            color: 'var(--danger-text)',
                             fontWeight: 600,
                             fontSize: '12px',
                             cursor: isDeleting ? 'wait' : 'pointer',
