@@ -8,16 +8,26 @@ async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const prisma = app.get(PrismaService);
 
+  // --dry recorre TODAS las fases y reporta, sin escribir en la base de datos.
+  const DRY = process.argv.includes('--dry');
+
   // ─────────────────────────────────────────────────────────────────────────────
   // PASO 1: Renombrar / eliminar registros viejos que ya existen en la BD
   //         Se usa DELETE (no desactivar) para que no aparezcan en la app.
   // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Tipos que no se pudieron eliminar; se reportan al final para no callarlos. */
+  const bloqueados: { nombre: string; motivo: string }[] = [];
 
   /** Renombra un tipo si existe, migrando servicios al destino si ya existe. */
   async function renameType(oldName: string, newName: string, newValor?: number) {
     const oldType = await prisma.tipos_servicio.findUnique({ where: { nombre: oldName } });
     if (!oldType) return;
     const newType = await prisma.tipos_servicio.findUnique({ where: { nombre: newName } });
+    if (DRY) {
+      console.log(`  ✏️  [dry] "${oldName}" → "${newName}"${newType ? '  (colisiona: migraría servicios y borraría el origen)' : ''}`);
+      return;
+    }
     await prisma.$transaction(async (tx) => {
       if (newType) {
         await tx.servicios.updateMany({
@@ -43,6 +53,10 @@ async function bootstrap() {
   async function deleteType(nombre: string, redirectTo?: string) {
     const t = await prisma.tipos_servicio.findUnique({ where: { nombre } });
     if (!t) return;
+    if (DRY) {
+      console.log(`  🗑️  [dry] eliminar "${nombre}"${redirectTo ? ` → reasignando servicios a "${redirectTo}"` : ''}`);
+      return;
+    }
     if (redirectTo) {
       const dest = await prisma.tipos_servicio.findUnique({ where: { nombre: redirectTo } });
       if (dest) {
@@ -52,13 +66,17 @@ async function bootstrap() {
         });
       }
     }
-    // Si todavía quedan servicios sin redirigir, los dejamos huérfanos temporales
-    // y eliminamos el tipo de todas formas (se usa onDelete: SetNull si está configurado)
-    await prisma.tipos_servicio.delete({ where: { id: t.id } }).catch(() => {
-      // Si hay FK constraint activa, desactivamos como fallback
-      return prisma.tipos_servicio.update({ where: { id: t.id }, data: { activo: false } });
-    });
-    console.log(`  🗑️  Eliminado: "${nombre}"`);
+    // La FK servicios→tipos_servicio es onDelete: NoAction, así que un tipo con
+    // servicios históricos NO se puede borrar sin reasignarlos antes. Fallamos de
+    // forma visible en lugar de desactivar a escondidas: el usuario verá el tipo
+    // aunque crea que lo eliminamos.
+    try {
+      await prisma.tipos_servicio.delete({ where: { id: t.id } });
+      console.log(`  🗑️  Eliminado: "${nombre}"`);
+    } catch {
+      bloqueados.push({ nombre, motivo: 'tiene servicios asociados y no se indicó sucesor' });
+      console.warn(`  ⛔ NO se pudo eliminar "${nombre}" (tiene servicios asociados).`);
+    }
   }
 
   console.log('🚀 Iniciando migración de nombres...');
@@ -309,7 +327,6 @@ async function bootstrap() {
         { servicio: 'Reparación TV IH partes pequeñas hasta 60"', valor: 20000 },
         { servicio: 'Reparación TV IH partes pequeñas (De 65" y 70" incluye ayudante)', valor: 30000 },
         { servicio: 'Reparación TV IH partes pequeñas (Desde 75" incluye ayudante)', valor: 50000 },
-        { servicio: 'Reparación TV recogido almacén (barras)', valor: 47000 },
         { servicio: 'Reparación IH de barras led', valor: 38000 },
         { servicio: 'Instalación TV (32" a 60" ayudante)', valor: 40000 },
         { servicio: 'Instalación TV (65" a 77" incluye ayudante)', valor: 50000 },
@@ -335,9 +352,19 @@ async function bootstrap() {
     ),
   ];
 
-  console.log('📦 Upsert del catálogo canónico...');
+  console.log(`📦 Upsert del catálogo canónico (${tariffs.length} nombres)...`);
+
+  if (DRY) {
+    const existentes = new Set(
+      (await prisma.tipos_servicio.findMany({ select: { nombre: true } })).map((t) => t.nombre),
+    );
+    const nuevos = tariffs.filter((t) => !existentes.has(t.nombre));
+    console.log(`  [dry] ${tariffs.length - nuevos.length} existentes, ${nuevos.length} se crearían`);
+    for (const t of nuevos) console.log(`    ➕ ${t.nombre} ($${t.valor})`);
+  }
 
   for (const t of tariffs) {
+    if (DRY) break;
     await prisma.tipos_servicio.upsert({
       where: { nombre: t.nombre },
       update: { valor_estandar: t.valor, activo: true },
@@ -345,9 +372,91 @@ async function bootstrap() {
     });
   }
 
-  console.log('✅ Tarifas actualizadas correctamente.');
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PASO 3: Purgar TODO tipo que no esté en el catálogo canónico.
+  //         Sin esto, cualquier residuo queda ACTIVO y visible en el selector de
+  //         la app para siempre, porque el upsert de arriba nunca lo toca.
+  //   --dry  solo reporta, no escribe.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  console.log(`\n🧹 PASO 3: purga de tipos fuera del catálogo canónico${DRY ? ' (DRY RUN)' : ''}...`);
+
+  /** Heredados con servicios históricos: se reasignan antes de borrar el tipo. */
+  const sucesores: Record<string, string> = {
+    'SAMSUNG: Carry IN taller TV': 'SAMSUNG: Eco Repair Taller',
+    'SAMSUNG: Carry IN taller Monitor Gamer': 'SAMSUNG: Taller Monitor Gamer',
+    'SAMSUNG: Carry IN o ps linea blanca': 'SAMSUNG: Reparación linea blanca almacén',
+    'SAMSUNG: Eco Repair transportadora/Carry IN': 'SAMSUNG: Eco Repair Taller',
+    'SAMSUNG: Recolección aire (desinstalar)':
+      'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)',
+    'SAMSUNG: Recolección TV cambio a partir de 75"':
+      'SAMSUNG: Recolección TV cambio a partir de 75" (+ ayudante)',
+    'SAMSUNG: Recolección producto cambio lav/nev (Frontal)':
+      'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)',
+    // El catálogo usa "garantía" en minúscula; las variantes con mayúscula son dupe.
+    ...Object.fromEntries(
+      (['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => [
+        `${marca}: Diagnóstico Garantía`,
+        `${marca}: Diagnóstico garantía`,
+      ]),
+    ),
+  };
+
+  const nombresCanonicos = new Set(tariffs.map((t) => t.nombre));
+  const todosTipos = await prisma.tipos_servicio.findMany({
+    select: { id: true, nombre: true },
+    orderBy: { nombre: 'asc' },
+  });
+  const huesfanos = todosTipos.filter((t) => !nombresCanonicos.has(t.nombre));
+
+  if (huesfanos.length === 0) {
+    console.log('  Nada que purgar: la BD ya coincide con el catálogo.');
+  }
+
+  for (const t of huesfanos) {
+    const refs = await prisma.servicios.count({ where: { tipo_servicio_id: t.id } });
+    const sucesorNombre = sucesores[t.nombre];
+
+    let sucesorId: string | null = null;
+    if (refs > 0) {
+      if (!sucesorNombre) {
+        bloqueados.push({ nombre: t.nombre, motivo: `${refs} servicios y sin sucesor configurado` });
+        console.warn(`  ⛔ "${t.nombre}" tiene ${refs} servicios y no tiene sucesor.`);
+        continue;
+      }
+      const sucesor = await prisma.tipos_servicio.findUnique({ where: { nombre: sucesorNombre } });
+      if (!sucesor) {
+        bloqueados.push({ nombre: t.nombre, motivo: `sucesor "${sucesorNombre}" no existe` });
+        console.warn(`  ⛔ "${t.nombre}": no existe el sucesor "${sucesorNombre}".`);
+        continue;
+      }
+      sucesorId = sucesor.id;
+    }
+
+    console.log(
+      `  🗑️  Purgando "${t.nombre}"${refs > 0 ? ` → reasignando ${refs} servicio(s) a "${sucesorNombre}"` : ''}`,
+    );
+    if (DRY) continue;
+
+    await prisma.$transaction(async (tx) => {
+      if (sucesorId) {
+        await tx.servicios.updateMany({
+          where: { tipo_servicio_id: t.id },
+          data: { tipo_servicio_id: sucesorId },
+        });
+      }
+      await tx.tipos_servicio.delete({ where: { id: t.id } });
+    });
+  }
+
+  if (bloqueados.length > 0) {
+    console.error(`\n⚠️  ${bloqueados.length} tipo(s) NO se pudieron eliminar:`);
+    for (const b of bloqueados) console.error(`     - ${b.nombre} (${b.motivo})`);
+  }
+
+  console.log(DRY ? '🧪 DRY RUN terminado: no se escribió nada.' : '✅ Tarifas actualizadas correctamente.');
   await app.close();
-  process.exit(0);
+  process.exit(bloqueados.length > 0 ? 1 : 0);
 }
 
 bootstrap();
