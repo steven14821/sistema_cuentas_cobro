@@ -22,6 +22,7 @@ export interface ReportData {
   subtitle: string;
   columns: ReportColumn[];
   rows: Record<string, string | number>[];
+  orientation?: 'portrait' | 'landscape';
   totalsLabel?: string;
   totalsValue?: string;
 }
@@ -29,7 +30,7 @@ export interface ReportData {
 // ---- PDF ----
 
 function buildReportPdf(report: ReportData): jsPDF {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: report.orientation ?? 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 18;

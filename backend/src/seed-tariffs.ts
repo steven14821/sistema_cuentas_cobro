@@ -9,10 +9,11 @@ async function bootstrap() {
   const prisma = app.get(PrismaService);
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 1: Renombrar / desactivar registros viejos que ya existen en la BD
+  // PASO 1: Renombrar / eliminar registros viejos que ya existen en la BD
+  //         Se usa DELETE (no desactivar) para que no aparezcan en la app.
   // ─────────────────────────────────────────────────────────────────────────────
 
-  // Helper: renombra un tipo si existe, migrando servicios al nuevo nombre si ya existe
+  /** Renombra un tipo si existe, migrando servicios al destino si ya existe. */
   async function renameType(oldName: string, newName: string, newValor?: number) {
     const oldType = await prisma.tipos_servicio.findUnique({ where: { nombre: oldName } });
     if (!oldType) return;
@@ -38,23 +39,37 @@ async function bootstrap() {
     console.log(`  ✏️  "${oldName}" → "${newName}"`);
   }
 
-  // Helper: desactiva un tipo si existe (no borra, para mantener historial)
-  async function deactivateType(nombre: string) {
+  /** Elimina un tipo completamente (redirige servicios al destino si se da). */
+  async function deleteType(nombre: string, redirectTo?: string) {
     const t = await prisma.tipos_servicio.findUnique({ where: { nombre } });
     if (!t) return;
-    await prisma.tipos_servicio.update({ where: { id: t.id }, data: { activo: false } });
-    console.log(`  🗑️  Desactivado: "${nombre}"`);
+    if (redirectTo) {
+      const dest = await prisma.tipos_servicio.findUnique({ where: { nombre: redirectTo } });
+      if (dest) {
+        await prisma.servicios.updateMany({
+          where: { tipo_servicio_id: t.id },
+          data: { tipo_servicio_id: dest.id },
+        });
+      }
+    }
+    // Si todavía quedan servicios sin redirigir, los dejamos huérfanos temporales
+    // y eliminamos el tipo de todas formas (se usa onDelete: SetNull si está configurado)
+    await prisma.tipos_servicio.delete({ where: { id: t.id } }).catch(() => {
+      // Si hay FK constraint activa, desactivamos como fallback
+      return prisma.tipos_servicio.update({ where: { id: t.id }, data: { activo: false } });
+    });
+    console.log(`  🗑️  Eliminado: "${nombre}"`);
   }
 
   console.log('🚀 Iniciando migración de nombres...');
 
-  // --- Diagnóstico: de "Diagnóstico TV" al nuevo esquema ---
+  // ── Diagnóstico TV → garantía (legado) ───────────────────────────────────────
   for (const marca of ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const) {
     await renameType(`${marca}: Diagnóstico TV`, `${marca}: Diagnóstico garantía`);
   }
 
-  // --- Garantía → Reparación (Samsung explícitos) ---
-  const samRenames: [string, string][] = [
+  // ── Renombres SAMSUNG ─────────────────────────────────────────────────────────
+  const samRenames: [string, string, number?][] = [
     ['SAMSUNG: Garantía taller equipos pequeños',      'SAMSUNG: Reparación taller equipos pequeños'],
     ['SAMSUNG: Garantía SR TV',                        'SAMSUNG: Reparación SR TV'],
     ['SAMSUNG: Garantía TV almacén',                   'SAMSUNG: Reparación TV almacén hasta 60"'],
@@ -82,29 +97,67 @@ async function bootstrap() {
     ['SAMSUNG: Instalación Panel ow de 65" a 75"',    'SAMSUNG: Instalacion Panel ow de 65" hasta 75"'],
     ['SAMSUNG: Facturado panel 58" para abajo',        'SAMSUNG: Instalacion Panel ow hasta 58"'],
     ['SAMSUNG: Instalación Panel ow hasta 58"',        'SAMSUNG: Instalacion Panel ow hasta 58"'],
+    // IH panel renombres
+    ['SAMSUNG: IH panel hasta 60"',                   'SAMSUNG: Reparación IH TV panel hasta 60"'],
+    ['SAMSUNG: IH panel a partir de 60" (incluye ayudante)', 'SAMSUNG: Reparación IH TV panel de 60" a 70" (incluye ayudante)'],
+    ['SAMSUNG: IH Paneles a partir 75" (incluye ayudante)', 'SAMSUNG: Reparación IH TV panel desde 75" (incluye ayudante)'],
+    // Instalaciones renombradas
+    ['SAMSUNG: Instalación de bespoke',               'SAMSUNG: Instalación Nevecion Bespoke'],
+    ['SAMSUNG: Instalación nevera',                   'SAMSUNG: Instalación Nevecon'],
+    // Recolección aire → split
+    ['SAMSUNG: Recolección aire (desinstalar + ayudante)', 'SAMSUNG: Recolección aire acondicionado split (incluye ayudante)', 25000],
+    ['SAMSUNG: Recolección aire acondicionado',       'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)'],
     // Reparaci (nombre truncado)
     ['SAMSUNG: Reparaci',                              'SAMSUNG: Reparación Nevera o Nevecon carga de gas'],
   ];
-  for (const [oldN, newN] of samRenames) {
-    await renameType(oldN, newN);
+  for (const [oldN, newN, val] of samRenames) {
+    await renameType(oldN, newN, val);
   }
 
-  // --- Desactivar servicios eliminados ---
-  const toDeactivate = [
+  // Instalación combo → Instalación secadora (50000)
+  // Si ya existe Instalación secadora con otro valor, primero la eliminamos
+  await renameType('SAMSUNG: Instalación combo', 'SAMSUNG: Instalación secadora', 50000);
+
+  // ── Eliminar servicios SAMSUNG que no se usan ─────────────────────────────────
+  const samDelete = [
     'SAMSUNG: Reparación TV IH (Carro Personal)',
     'SAMSUNG: Garantía TV IH (Carro Personal)',
     'SAMSUNG: Reparación TV IH (60" o más)',
     'SAMSUNG: Garantía TV IH (60" o más)',
+    'SAMSUNG: Reparación TV mayor a 75"',
+    'SAMSUNG: Reparación TV recogido almacén (barras)',
+    // residuos de sesiones anteriores
+    'SAMSUNG: Reparacion taller equipos pequeños',
+    'SAMSUNG: Reparacion TV IH (Carro Personal)',
+    'SAMSUNG: Reparacion TV IH (60" o más)',
+    'SAMSUNG: Reparacion SR TV',
+    'SAMSUNG: Reparacion TV almacén hasta 60"',
+    'SAMSUNG: Reparacion TV almacén desde 65"',
+    'SAMSUNG: Garantia TV IH partes pequeñas',
+    'SAMSUNG: Reparacion TV IH partes pequeñas hasta 60"',
+    'SAMSUNG: Reparacion aire',
+    'SAMSUNG: Reparacion TV recogido almacén (barras)',
+    'SAMSUNG: Reparacion TV mayor a 75"',
+    'SAMSUNG: Reparacion nevera',
+    'SAMSUNG: Reparacion lavadora',
+    'SAMSUNG: Reparacion lavadora (Tina Carga Frontal)',
+    'SAMSUNG: Reparacion hornos y torres almacén',
+    'SAMSUNG: Reparacion linea blanca almacén',
+    'SAMSUNG: Reparacion TV IH partes pequeñas (De 65" y 70" incluye ayudante)',
+    'SAMSUNG: Reparacion TV IH partes pequeñas (Desde 75" incluye ayudante)',
+    'SAMSUNG: Reparacion IH TV panel hasta 60"',
+    'SAMSUNG: Reparacion IH TV panel de 60" a 70" (incluye ayudante)',
+    'SAMSUNG: Reparacion IH TV panel desde 75" (incluye ayudante)',
   ];
-  for (const nombre of toDeactivate) {
-    await deactivateType(nombre);
+  for (const nombre of samDelete) {
+    await deleteType(nombre);
   }
 
-  // --- Mismo tratamiento para HYUNDAI y TCL ---
+  // ── Renombres HYUNDAI y TCL ───────────────────────────────────────────────────
   for (const marca of ['HYUNDAI', 'TCL'] as const) {
-    const marcaRenames: [string, string][] = [
-      [`${marca}: Garantía TV IH (Carro Personal)`,        `${marca}: Reparación TV IH (Carro Personal)`],
-      [`${marca}: Reparación TV IH (Carro Personal)`,      `${marca}: Desactivado_IH_Carro_Personal`], // se desactivará abajo
+    const marcaRenames: [string, string, number?][] = [
+      [`${marca}: Garantía TV IH (Carro Personal)`,        `${marca}: Desactivado_IH_Carro_Personal`],
+      [`${marca}: Reparación TV IH (Carro Personal)`,      `${marca}: Desactivado_IH_Carro_Personal`],
       [`${marca}: Garantía TV IH (60" o más)`,             `${marca}: Desactivado_IH_60_o_mas`],
       [`${marca}: Reparación TV IH (60" o más)`,           `${marca}: Desactivado_IH_60_o_mas`],
       [`${marca}: Garantía SR TV`,                         `${marca}: Reparación SR TV`],
@@ -122,18 +175,29 @@ async function bootstrap() {
       [`${marca}: Eco repair almacenes`,                   `${marca}: Eco Repair Taller`],
       [`${marca}: Facturado Panel 75"`,                    `${marca}: Instalacion Panel ow de 65" hasta 75"`],
       [`${marca}: Facturado panel 58" para abajo`,         `${marca}: Instalacion Panel ow hasta 58"`],
+      [`${marca}: IH panel hasta 60"`,                    `${marca}: Reparación IH TV panel hasta 60"`],
+      [`${marca}: IH panel a partir de 60" (incluye ayudante)`, `${marca}: Reparación IH TV panel de 60" a 70" (incluye ayudante)`],
+      [`${marca}: IH Paneles a partir 75" (incluye ayudante)`, `${marca}: Reparación IH TV panel desde 75" (incluye ayudante)`],
+      [`${marca}: Reparación TV mayor a 75"`,              `${marca}: Desactivado_mayor75`],
+      [`${marca}: Reparación TV recogido almacén (barras)`, `${marca}: Desactivado_recogido`],
     ];
-    for (const [oldN, newN] of marcaRenames) {
-      await renameType(oldN, newN);
+    for (const [oldN, newN, val] of marcaRenames) {
+      await renameType(oldN, newN, val);
     }
-    // Desactivar eliminados para esta marca
-    for (const suffix of ['Desactivado_IH_Carro_Personal', 'Desactivado_IH_60_o_mas']) {
-      await deactivateType(`${marca}: ${suffix}`);
+    // Eliminar los temporales y los de IH Carro/60
+    const marcaDelete = [
+      `${marca}: Desactivado_IH_Carro_Personal`,
+      `${marca}: Desactivado_IH_60_o_mas`,
+      `${marca}: Desactivado_mayor75`,
+      `${marca}: Desactivado_recogido`,
+    ];
+    for (const nombre of marcaDelete) {
+      await deleteType(nombre);
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 2: Upsert del catálogo canónico
+  // PASO 2: Upsert del catálogo canónico (nombres definitivos)
   // ─────────────────────────────────────────────────────────────────────────────
 
   const tariffs = [
@@ -153,34 +217,31 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Reparación TV IH partes pequeñas (Desde 75" incluye ayudante)', valor: 50000 },
     { nombre: 'SAMSUNG: Reparación aire', valor: 35000 },
     { nombre: 'SAMSUNG: Diagnostico aire', valor: 20000 },
-    { nombre: 'SAMSUNG: Reparación TV recogido almacén (barras)', valor: 47000 },
-    { nombre: 'SAMSUNG: Reparación TV mayor a 75"', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación IH de barras led', valor: 38000 },
     { nombre: 'SAMSUNG: Reparación estufa', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación nevera', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación lavadora', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación lavadora (Tina Carga Frontal)', valor: 40000 },
     { nombre: 'SAMSUNG: Reparación Nevera o Nevecon carga de gas', valor: 90000 },
-    { nombre: 'SAMSUNG: Instalación nevera', valor: 15000 },
+    { nombre: 'SAMSUNG: Instalación Nevecon', valor: 15000 },
     { nombre: 'SAMSUNG: Instalación lavadora superior', valor: 10000 },
     { nombre: 'SAMSUNG: Instalación lavadora frontal', valor: 14000 },
-    { nombre: 'SAMSUNG: Instalación secadora', valor: 40000 },
+    { nombre: 'SAMSUNG: Instalación secadora', valor: 50000 },
     { nombre: 'SAMSUNG: Instalación lavavajillas', valor: 35000 },
     { nombre: 'SAMSUNG: Instalación torre', valor: 60000 },
-    { nombre: 'SAMSUNG: Instalación de bespoke', valor: 25000 },
-    { nombre: 'SAMSUNG: Instalación combo', valor: 60000 },
+    { nombre: 'SAMSUNG: Instalación Nevecion Bespoke', valor: 25000 },
     { nombre: 'SAMSUNG: Instalación TV (32" a 60" ayudante)', valor: 40000 },
     { nombre: 'SAMSUNG: Instalación TV (65" a 77" incluye ayudante)', valor: 50000 },
     { nombre: 'SAMSUNG: Instalación TV (80" a 100" incluye ayudante)', valor: 80000 },
-    { nombre: 'SAMSUNG: IH panel hasta 60"', valor: 25000 },
-    { nombre: 'SAMSUNG: IH panel a partir de 60" (incluye ayudante)', valor: 35000 },
-    { nombre: 'SAMSUNG: IH Paneles a partir 75" (incluye ayudante)', valor: 50000 },
+    { nombre: 'SAMSUNG: Reparación IH TV panel hasta 60"', valor: 25000 },
+    { nombre: 'SAMSUNG: Reparación IH TV panel de 60" a 70" (incluye ayudante)', valor: 35000 },
+    { nombre: 'SAMSUNG: Reparación IH TV panel desde 75" (incluye ayudante)', valor: 50000 },
     { nombre: 'SAMSUNG: Recolección Nevecon cambio (incluye ayudante)', valor: 30000 },
     { nombre: 'SAMSUNG: Recolección Nevecon mano a mano', valor: 40000 },
     { nombre: 'SAMSUNG: Recolección producto cambio lav/nev', valor: 15000 },
     { nombre: 'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)', valor: 25000 },
-    { nombre: 'SAMSUNG: Recolección aire acondicionado', valor: 15000 },
-    { nombre: 'SAMSUNG: Recolección aire (desinstalar + ayudante)', valor: 55000 },
+    { nombre: 'SAMSUNG: Recolección aire acondicionado split (incluye ayudante)', valor: 25000 },
+    { nombre: 'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)', valor: 55000 },
     { nombre: 'SAMSUNG: Recolección TV cambio hasta 58"', valor: 10000 },
     { nombre: 'SAMSUNG: Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
     { nombre: 'SAMSUNG: Recolección TV cambio a partir de 75" (+ ayudante)', valor: 25000 },
@@ -232,8 +293,7 @@ async function bootstrap() {
     { nombre: 'HISENSE: Cambio de compresor', valor: 90000 },
     { nombre: 'HISENSE: Cambio de parte aires', valor: 35000 },
 
-    // Diagnóstico de garantía de TV — disponible para todas las marcas.
-    // ⚠️  NO renombrar: "Diagnóstico garantía" se conserva tal cual.
+    // Diagnóstico de garantía — ⚠️ NO renombrar, se conserva tal cual.
     ...(['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => ({
       nombre: `${marca}: Diagnóstico garantía`,
       valor: 10000,
@@ -254,9 +314,9 @@ async function bootstrap() {
         { servicio: 'Instalación TV (32" a 60" ayudante)', valor: 40000 },
         { servicio: 'Instalación TV (65" a 77" incluye ayudante)', valor: 50000 },
         { servicio: 'Instalación TV (80" a 100" incluye ayudante)', valor: 80000 },
-        { servicio: 'IH panel hasta 60"', valor: 25000 },
-        { servicio: 'IH panel a partir de 60" (incluye ayudante)', valor: 35000 },
-        { servicio: 'IH Paneles a partir 75" (incluye ayudante)', valor: 50000 },
+        { servicio: 'Reparación IH TV panel hasta 60"', valor: 25000 },
+        { servicio: 'Reparación IH TV panel de 60" a 70" (incluye ayudante)', valor: 35000 },
+        { servicio: 'Reparación IH TV panel desde 75" (incluye ayudante)', valor: 50000 },
         { servicio: 'Recolección TV cambio hasta 58"', valor: 10000 },
         { servicio: 'Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
         { servicio: 'Recolección TV cambio a partir de 75" (+ ayudante)', valor: 25000 },
@@ -280,15 +340,8 @@ async function bootstrap() {
   for (const t of tariffs) {
     await prisma.tipos_servicio.upsert({
       where: { nombre: t.nombre },
-      update: {
-        valor_estandar: t.valor,
-        activo: true,
-      },
-      create: {
-        nombre: t.nombre,
-        valor_estandar: t.valor,
-        activo: true,
-      },
+      update: { valor_estandar: t.valor, activo: true },
+      create: { nombre: t.nombre, valor_estandar: t.valor, activo: true },
     });
   }
 

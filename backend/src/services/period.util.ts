@@ -65,3 +65,16 @@ export function getPeriodoConExcepcion(
 export function toUtcDate({ anio, mes, dia }: FechaColombia): Date {
   return new Date(Date.UTC(anio, mes - 1, dia, 0, 0, 0, 0));
 }
+
+// Convierte una fecha YYYY-MM-DD ingresada por el admin a una fecha de vencimiento a las 23:59:59.999 hora Colombia.
+export function parseColombiaEndOfDay(fechaStr: string | Date): Date {
+  if (fechaStr instanceof Date) {
+    fechaStr = fechaStr.toISOString().split('T')[0];
+  }
+  const parts = String(fechaStr).split('T')[0].split('-').map(Number);
+  const anio = parts[0];
+  const mes = parts[1];
+  const dia = parts[2];
+  // 23:59:59.999 hora Colombia (UTC-5) equivale a las 04:59:59.999 UTC del día siguiente
+  return new Date(Date.UTC(anio, mes - 1, dia, 23, 59, 59, 999) + COLOMBIA_OFFSET_MS);
+}

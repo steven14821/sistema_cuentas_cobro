@@ -1,3 +1,5 @@
+import { DatosCobroModal } from '../components/DatosCobroModal';
+import type { DatosCobroApi } from '../services/technicianApi';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +18,7 @@ import {
   isVentanaAbierta,
   nombreMes,
 } from '../lib/period';
-import { AlertTriangle, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
 import {
   compressPhoto,
   lugaresBucaramanga,
@@ -32,6 +34,7 @@ import {
   QueuedOfflineError,
   type PendingOperation,
 } from '../lib/offlineStore';
+import { PhotoAccountImport } from './technician/PhotoAccountImport';
 
 // Función para extraer únicamente el número de orden limpio para el técnico
 export function getNumeroOrdenLimpio(numeroOrden: string): string {
@@ -98,6 +101,7 @@ export const TechnicianPortal = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showPhotoImport, setShowPhotoImport] = useState(false);
   const [radicando, setRadicando] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([]);
@@ -118,12 +122,51 @@ export const TechnicianPortal = () => {
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
   const [signatureAccount, setSignatureAccount] = useState<CuentaApi | null>(null);
   const [savingSignature, setSavingSignature] = useState(false);
+  const [showDatosCobroModal, setShowDatosCobroModal] = useState(false);
+  const [datosCobro, setDatosCobro] = useState<DatosCobroApi | null>(null);
+  const pendingPdfDownloadRef = useRef<((d: DatosCobroApi) => void) | null>(null);
 
   const isNetworkFailure = (err: unknown) =>
     err instanceof TypeError || !navigator.onLine ||
     /failed to fetch|network error|fetch failed/i.test(err instanceof Error ? err.message : '');
 
   // ---- Carga de datos ----
+
+  useEffect(() => {
+    technicianApi.getDatosCobro().then((res) => {
+      if (res) setDatosCobro(res);
+    }).catch(() => {});
+  }, []);
+
+  const ensureDatosCobroThen = async (action: (d: DatosCobroApi) => void) => {
+    let current = datosCobro;
+    if (!current) {
+      try {
+        current = await technicianApi.getDatosCobro();
+        if (current) setDatosCobro(current);
+      } catch {
+        // ignore
+      }
+    }
+    if (current && current.numero_cuenta && current.nit) {
+      action(current);
+    } else {
+      pendingPdfDownloadRef.current = (d: DatosCobroApi) => {
+        action(d);
+      };
+      setShowDatosCobroModal(true);
+    }
+  };
+
+  const handleSaveDatosCobro = async (nuevosDatos: DatosCobroApi) => {
+    await technicianApi.saveDatosCobro(nuevosDatos);
+    setDatosCobro(nuevosDatos);
+    setShowDatosCobroModal(false);
+    if (pendingPdfDownloadRef.current) {
+      pendingPdfDownloadRef.current(nuevosDatos);
+      pendingPdfDownloadRef.current = null;
+    }
+  };
 
   const loadAccount = useCallback(async () => {
     let res: Awaited<ReturnType<typeof technicianApi.getMyAccount>>;
@@ -746,6 +789,26 @@ export const TechnicianPortal = () => {
                 <Plus size={18} />
                 {enCorreccion ? 'Agregar orden' : 'Agregar Servicio'}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowPhotoImport(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'var(--surface)',
+                  color: 'var(--blue)',
+                  border: '1px solid var(--blue-border)',
+                  padding: '12px 16px',
+                  borderRadius: '14px',
+                  fontSize: '14px',
+                  fontWeight: '650',
+                  cursor: 'pointer',
+                }}
+              >
+                <Camera size={17} />
+                Crear desde fotos
+              </button>
             </div>
           ) : (
             <div style={{
@@ -1162,6 +1225,16 @@ export const TechnicianPortal = () => {
             }}
           />
         )}
+        {showPhotoImport && (
+          <PhotoAccountImport
+            types={tipos}
+            sede={user?.sede}
+            onClose={() => setShowPhotoImport(false)}
+            onSaved={async () => {
+              await Promise.all([loadAccount(), loadHistory()]);
+            }}
+          />
+        )}
         {editingService && (
           <div className="correction-backdrop">
             <form className="correction-modal" onSubmit={handleSaveCorrection}>
@@ -1304,6 +1377,12 @@ export const TechnicianPortal = () => {
           />
         )}
       </div>
+      <DatosCobroModal
+        open={showDatosCobroModal}
+        onClose={() => setShowDatosCobroModal(false)}
+        onSave={handleSaveDatosCobro}
+        initialData={datosCobro}
+      />
     </MainLayout>
   );
 };

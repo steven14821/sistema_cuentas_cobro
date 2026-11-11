@@ -36,6 +36,7 @@ function makePrisma() {
       update: vi.fn(),
       deleteMany: vi.fn(),
     },
+    ordenes_registradas: { create: vi.fn().mockResolvedValue({}) },
     $transaction: vi.fn(async (cb) => {
       return cb(prisma);
     }),

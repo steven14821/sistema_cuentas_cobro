@@ -1,4 +1,12 @@
-import { apiFetch } from '../lib/api';
+export interface DatosCobroApi {
+  banco: string;
+  numero_cuenta: string;
+  nit: string;
+  telefono: string;
+  lugar_expedicion: string;
+}
+
+import { apiFetch, apiUpload } from '../lib/api';
 
 export interface ServiceApi {
   id: string;
@@ -93,6 +101,20 @@ export type CreateTransferPayload = {
   valor_cobrado?: number;
 };
 
+export type ImportedServicePayload = {
+  tipo_servicio_id: string;
+  numero_orden: string;
+  valor_cobrado: number;
+  es_traslado: boolean;
+  descripcion_especifica?: string;
+  destino?: string;
+  transporte?: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
+  puertas_desmontadas?: number;
+  requiere_ayudante?: boolean;
+  motivo_ayudante?: string;
+  fotos?: string[];
+};
+
 export function asEstadoServicio(value: string): EstadoServicio {
   return value as EstadoServicio;
 }
@@ -110,6 +132,37 @@ export const technicianApi = {
   getMyAccount: () => apiFetch<MyAccountResponse>('/services/my-account'),
 
   getMyAccounts: () => apiFetch<CuentaApi[]>('/services/my-accounts'),
+
+  getDatosCobro: () => apiFetch<DatosCobroApi | null>('/services/datos-cobro'),
+
+  saveDatosCobro: (payload: DatosCobroApi) =>
+    apiFetch<DatosCobroApi>('/services/datos-cobro', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+
+  previewPhotoImport: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiUpload<{
+      numero_orden: string;
+      tipo_servicio: string | null;
+      tipo_servicio_id: string | null;
+      descripcion_especifica: string;
+      valor_cobrado: number | null;
+      es_traslado: boolean;
+      destino: string | null;
+      transporte: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA' | null;
+      confianza: 'alta' | 'media' | 'baja';
+    }>('/services/my-account/photo-import/preview', body);
+  },
+
+  createImportedService: (payload: ImportedServicePayload) =>
+    apiFetch<ServiceApi>('/services/my-account/imported-service', {
+      method: 'POST',
+      body: payload,
+    }),
 
   signAccount: (id: string, firma_tecnico: string) =>
     apiFetch<{ id: string; firma_tecnico: string; fecha_firma: string }>(`/services/my-accounts/${id}/signature`, {

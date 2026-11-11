@@ -30,6 +30,29 @@ interface OrdenAgrupadaAdmin {
   estado: EstadoServicio;
 }
 
+function TariffAuditNote({ service }: { service: AccountService }) {
+  const audit = service.auditoria_tarifa;
+  const isMatch = audit.status === 'match';
+  const isMismatch = audit.status === 'mismatch';
+  const color = isMatch ? 'var(--success-text)' : isMismatch ? 'var(--danger-text)' : 'var(--warning-text)';
+  const label = isMatch
+    ? 'Tarifa coincide'
+    : isMismatch
+      ? 'Diferencia de tarifa'
+      : 'Verificación manual';
+
+  return (
+    <div style={{ marginTop: 6, color, fontSize: 12, lineHeight: 1.45 }}>
+      <strong>{label}:</strong>{' '}
+      {isMismatch
+        ? `cobrado ${formatCOP(audit.charged)}, total esperado ${formatCOP(audit.expected ?? 0)}. ${audit.explanation}`
+        : isMatch
+          ? `cobrado ${formatCOP(audit.charged)}, total esperado ${formatCOP(audit.expected ?? 0)}. ${audit.explanation}`
+          : audit.explanation}
+    </div>
+  );
+}
+
 export const AccountDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -395,6 +418,22 @@ export const AccountDetailPage = () => {
               </div>
             </div>
           </div>
+          <div
+            role="status"
+            style={{
+              marginTop: 16,
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: account.auditoria_tarifas.diferencias > 0 ? 'var(--danger-bg)' : 'var(--surface-2)',
+              color: 'var(--text-slate)',
+              fontSize: 13,
+            }}
+          >
+            Revisión automática con tarifas vigentes: <strong>{account.auditoria_tarifas.coincidencias}</strong> coinciden,
+            {' '}<strong style={{ color: account.auditoria_tarifas.diferencias ? 'var(--danger-text)' : undefined }}>{account.auditoria_tarifas.diferencias}</strong> con diferencias y
+            {' '}<strong>{account.auditoria_tarifas.revision_manual}</strong> requieren revisión manual.
+            {' '}Los traslados se dejan para revisión manual porque su cálculo depende del viaje y de los servicios incluidos.
+          </div>
 
           {/* Botones de acción masiva sobre la cuenta completa */}
           <div
@@ -560,6 +599,8 @@ export const AccountDetailPage = () => {
                               <strong>Destino:</strong> {grupo.traslado.descripcion_especifica}
                             </div>
                           )}
+                          <TariffAuditNote service={s} />
+                          {grupo.traslado && <TariffAuditNote service={grupo.traslado} />}
                           {s.auditoria && s.auditoria.length > 0 && s.auditoria[0].observacion && (
                             <div style={obsNoteStyle}>
                               <strong>Última nota:</strong> {s.auditoria[0].observacion}
@@ -722,6 +763,8 @@ export const AccountDetailPage = () => {
                     )}
 
                     <p className="admin-service-card-description">{s.descripcion_especifica || 'Sin descripción del servicio.'}</p>
+                    <TariffAuditNote service={s} />
+                    {grupo.traslado && <TariffAuditNote service={grupo.traslado} />}
                     {s.auditoria?.[0]?.observacion && (
                       <div className="admin-service-card-note">
                         <strong>Última nota:</strong> {s.auditoria[0].observacion}

@@ -11,6 +11,8 @@ import {
   Menu,
   X,
   Search,
+  Sparkles,
+  FileUp,
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -41,6 +43,8 @@ export const MainLayout = ({ children }) => {
     ? [
         { icon: Home, label: 'Panel Principal', path: '/dashboard' },
         { icon: ClipboardCheck, label: 'Revisión Admin', path: '/admin/review' },
+        { icon: FileUp, label: 'Importar cuenta PDF', path: '/admin/import-account' },
+        { icon: Sparkles, label: 'Asistente IA', path: '/admin/assistant' },
         { icon: BarChart3, label: 'Reportes', path: '/reports' },
       ]
     : [{ icon: Receipt, label: 'Mis Cuentas de Cobro', path: '/technician' }];

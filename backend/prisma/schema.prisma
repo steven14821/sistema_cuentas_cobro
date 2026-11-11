@@ -97,6 +97,7 @@ model usuarios {
   sede                                                     String?               @default("Bucaramanga") @db.VarChar(50)
   activo                                                   Boolean?              @default(true)
   motivo_inactivacion                                     String?
+  datos_cobro_encrypted                                   String?
   created_at                                               DateTime?             @default(now()) @db.Timestamptz(6)
   auditoria_servicios                                      auditoria_servicios[]
   cuentas_cobro                                            cuentas_cobro[]

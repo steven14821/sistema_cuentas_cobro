@@ -8,6 +8,7 @@ import {
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalEmailService, type ApprovalEmailResult } from './approval-email.service';
+import { parseColombiaEndOfDay } from '../services/period.util';
 import * as bcrypt from 'bcrypt';
 
 export type EstadoServicio = 'Pendiente' | 'Aprobado' | 'Observado' | 'Rechazado';
@@ -470,7 +471,7 @@ export class AdminService {
     return this.prisma.excepciones_carga.create({
       data: {
         usuario_id: usuarioId,
-        fecha_vencimiento: fechaVencimiento,
+        fecha_vencimiento: parseColombiaEndOfDay(fechaVencimiento),
         creado_por: adminId,
         motivo: motivo ?? '',
       },

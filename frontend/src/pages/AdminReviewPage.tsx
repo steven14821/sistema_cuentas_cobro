@@ -13,7 +13,7 @@ import { UserList } from '../components/UserList';
 import { UserCreateModal } from '../components/UserCreateModal';
 import { ExceptionModal } from '../components/ExceptionModal';
 import { EstadoBadge } from '../components/EstadoBadge';
-import { formatCOP, nombreMes } from '../lib/period';
+import { formatCOP, nombreMes, formatFechaColombia, isExcepcionVigente } from '../lib/period';
 
 type Tab = 'cuentas' | 'usuarios' | 'excepciones';
 
@@ -499,8 +499,7 @@ export const AdminReviewPage = () => {
                   </thead>
                   <tbody>
                     {exceptions.map((e) => {
-                      const vence = new Date(e.fecha_vencimiento);
-                      const vigente = vence >= new Date();
+                      const vigente = isExcepcionVigente(e.fecha_vencimiento);
                       return (
                         <tr key={e.id} style={tbodyRow}>
                           <td style={{ ...td, fontWeight: 600 }}>{e.tecnico ?? '—'}</td>
@@ -515,7 +514,7 @@ export const AdminReviewPage = () => {
                                 color: vigente ? 'var(--success-text)' : 'var(--text-secondary)',
                               }}
                             >
-                              {vence.toLocaleDateString('es-CO')}
+                              {formatFechaColombia(e.fecha_vencimiento)}
                               {vigente ? ' ✓ Vigente' : ' Vencida'}
                             </span>
                           </td>

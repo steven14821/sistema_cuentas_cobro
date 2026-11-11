@@ -1,16 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { nombreMes } from './period';
-import { LOGO_BASE64 } from './logoBase64';
-
-// Paleta de marca (coincide con styles/globals.css)
-const INK: [number, number, number] = [8, 17, 31];      // #08111F
-const BLUE: [number, number, number] = [0, 87, 184];     // #0057B8
-const GOLD: [number, number, number] = [245, 196, 0];    // #F5C400
-const GREY: [number, number, number] = [134, 134, 139];  // #86868B
-const LIGHT: [number, number, number] = [245, 245, 247]; // #F5F5F7
-const WHITE: [number, number, number] = [255, 255, 255];
-const LINE: [number, number, number] = [220, 220, 225];
+import { numeroALetras } from './numeroALetras';
 
 export interface ServicioPdf {
   orden: string;
@@ -19,179 +10,245 @@ export interface ServicioPdf {
   valor: number;
 }
 
+export interface DatosCobroPdf {
+  banco?: string;
+  numero_cuenta?: string;
+  nit?: string;
+  telefono?: string;
+  lugar_expedicion?: string;
+}
+
 export interface CuentaPdf {
   mes: number;      // 1-12
   anio: number;
   tecnico: string;
   servicios: ServicioPdf[];
   estado: string;
-  // Cuentas de solo resumen (historial): total y conteo precalculados,
-  // ya que no se tiene el detalle itemizado de servicios cerrados.
   total?: number;
   serviciosCount?: number;
   firmaTecnico?: string | null;
   fechaFirma?: string | null;
+  datosCobro?: DatosCobroPdf | null;
 }
 
-// Formato COP alineado con la UI: 50000 -> "$ 50.000".
-// Se mantiene local (espacio normal) en vez de formatCOP: jsPDF no renderiza
-// el espacio duro (U+00A0) que produce Intl currency para es-CO.
-const cop = (v: number) =>
-  '$ ' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
+// Formateador de moneda estilo plantilla: 141000 -> "141.000"
+const formatMonto = (v: number) =>
+  new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
 
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
-// Construye el documento de la cuenta de cobro y lo devuelve (sin descargar).
 export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
-  const margin = 18;
-  const usable = pageW - margin * 2;
+  const pageH = doc.internal.pageSize.getHeight();
+  const centerX = pageW / 2;
 
   const total = cuenta.total ?? cuenta.servicios.reduce((acc, s) => acc + s.valor, 0);
-  const countServicios = cuenta.serviciosCount ?? cuenta.servicios.length;
-  const mesNombre = nombreMes(cuenta.mes);
+  const mesNombre = nombreMes(cuenta.mes).toLowerCase();
+  const mesNombreCap = nombreMes(cuenta.mes);
 
-  // ---- Cabecera de marca ----
-  doc.setFillColor(...BLUE);
-  doc.rect(0, 0, pageW, 6, 'F'); // franja superior
+  const datos = cuenta.datosCobro || {};
+  const nitTecnico = datos.nit || '—';
+  const ciudadTecnico = datos.lugar_expedicion || 'Girón – Santander';
+  const cuentaBancaria = datos.numero_cuenta || '—';
+  const bancoNombre = datos.banco || 'Bancolombia';
+  const telefonoTecnico = datos.telefono || '—';
 
-  try {
-    // Dibujamos el logo de la empresa
-    doc.addImage(LOGO_BASE64, 'PNG', margin, 12, 45, 17, undefined, 'FAST');
-  } catch {
-    doc.setFillColor(...INK);
-    doc.roundedRect(margin, 16, 18, 12, 2.5, 2.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text('E&M', margin + 9, 23.5, { align: 'center' });
-  }
+  // Rango de fechas del período: último día del mes
+  const ultimoDia = new Date(cuenta.anio, cuenta.mes, 0).getDate();
+  const fechaConcepto = `(01 de ${mesNombre} hasta ${ultimoDia} de ${mesNombre} de ${cuenta.anio})`;
 
-  doc.setTextColor(...INK);
+  // =========================================================================
+  // PÁGINA 1: CUENTA DE COBRO FORMAL
+  // =========================================================================
+
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('E&M Electronic Solutions', margin + 50, 19);
+  doc.setTextColor(30, 90, 165); // Color azul elegante corporativo
+  doc.text('E&M ELECTRONIC SOLUTIONS SAS', centerX, 36, { align: 'center' });
 
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('NIT: 901.523.861-8', centerX, 43, { align: 'center' });
+
+  // DEBE A:
+  let y = 72;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('DEBE A:', centerX, y, { align: 'center' });
+
+  y += 9;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...GREY);
-  doc.text('Gestión de Cuentas y Cobros', margin + 50, 24);
+  doc.setFontSize(10.5);
+  doc.text(cuenta.tecnico, centerX, y, { align: 'center' });
 
-  // ---- Título del documento ----
+  y += 6.5;
+  doc.text(`NIT: ${nitTecnico}`, centerX, y, { align: 'center' });
+
+  y += 6.5;
+  doc.text(ciudadTecnico, centerX, y, { align: 'center' });
+
+  // LA SUMA DE:
+  y += 24;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(...INK);
-  doc.text('CUENTA DE COBRO', margin, 46);
+  doc.setFontSize(11);
+  doc.text('LA SUMA DE:', centerX, y, { align: 'center' });
 
-  doc.setDrawColor(...GOLD);
-  doc.setLineWidth(1.2);
-  doc.line(margin, 50, margin + 42, 50);
+  y += 9;
+  doc.setFontSize(12);
+  doc.text(formatMonto(total), centerX, y, { align: 'center' });
 
-  // ---- Metadatos ----
-  const metaY = 60;
+  y += 6.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10.5);
+  doc.text(numeroALetras(total), centerX, y, { align: 'center' });
+
+  y += 11;
+  doc.text(`por favor consignar a la cuenta de ahorros ${bancoNombre}:`, centerX, y, { align: 'center' });
+
+  y += 8.5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(cuentaBancaria, centerX, y, { align: 'center' });
+
+  // POR CONCEPTO DE:
+  y = 195;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.text('POR CONCEPTO DE:', 26, y);
+
+  y += 6;
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
+  doc.text(
+    `servicios prestados como técnico en E&M ELECTRONIC SOLUTIONS SAS de ${fechaConcepto}`,
+    26,
+    y
+  );
+
+  // COORDIALMENTE,
+  y = 222;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.text('COORDIALMENTE,', 26, y);
+
+  y += 12;
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(cuenta.tecnico, 26, y);
 
-  const meta: [string, string][] = [
-    ['Período', `${mesNombre} ${cuenta.anio}`],
-    ['Técnico', cuenta.tecnico],
-    ['Estado', cuenta.estado],
-    ['Servicios', String(countServicios)],
-    ['Emitido', new Date().toLocaleDateString('es-CO')],
-  ];
+  y += 5.5;
+  doc.text(`NIT: ${nitTecnico}`, 26, y);
 
-  let y = metaY;
-  for (const [k, v] of meta) {
-    doc.setTextColor(...GREY);
-    doc.text(k, margin, y);
-    doc.setTextColor(...INK);
-    doc.setFont('helvetica', 'bold');
-    doc.text(v, margin + 32, y);
-    doc.setFont('helvetica', 'normal');
-    y += 6;
-  }
+  y += 5.5;
+  doc.text(`Teléfono: ${telefonoTecnico}`, 26, y);
 
-  // ---- Tabla de servicios ----
+  // =========================================================================
+  // PÁGINA 2: DETALLE DE LAS ÓRDENES PRESTADAS
+  // =========================================================================
+  doc.addPage();
+
+  const marginX = 26;
+  let page2Y = 32;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`DETALLE DE LAS ÓRDENES PRESTADAS MES (${mesNombre})`, marginX, page2Y);
+
+  // Tabla con 4 columnas: Referencia | Tipo de Servicio | Descripción | Pago
   const head = [[
-    { content: 'Orden', styles: { fillColor: INK, textColor: WHITE, fontStyle: 'bold' as const } },
-    { content: 'Tipo de Servicio', styles: { fillColor: INK, textColor: WHITE, fontStyle: 'bold' as const } },
-    { content: 'Descripción', styles: { fillColor: INK, textColor: WHITE, fontStyle: 'bold' as const } },
-    { content: 'Valor', styles: { fillColor: INK, textColor: WHITE, fontStyle: 'bold' as const, halign: 'right' as const } },
+    { content: 'referencia', styles: { halign: 'left' as const, fontStyle: 'bold' as const } },
+    { content: 'tipo de servicio', styles: { halign: 'left' as const, fontStyle: 'bold' as const } },
+    { content: 'descripción', styles: { halign: 'left' as const, fontStyle: 'bold' as const } },
+    { content: 'pago', styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
   ]];
 
-  const body = cuenta.servicios.map((s, i) => [
-    { content: s.orden, styles: { fillColor: i % 2 === 0 ? WHITE : LIGHT } },
-    { content: s.tipo, styles: { fillColor: i % 2 === 0 ? WHITE : LIGHT } },
-    { content: s.descripcion, styles: { fillColor: i % 2 === 0 ? WHITE : LIGHT } },
-    { content: cop(s.valor), styles: { fillColor: i % 2 === 0 ? WHITE : LIGHT, halign: 'right' as const } },
+  const body = cuenta.servicios.map((s) => [
+    { content: s.orden },
+    { content: s.tipo || '—' },
+    { content: s.descripcion || '—' },
+    { content: formatMonto(s.valor), styles: { halign: 'right' as const } },
+  ]);
+
+  // Fila de Total
+  body.push([
+    { content: '' },
+    { content: '' },
+    { content: 'total', styles: { halign: 'right' as const } },
+    { content: formatMonto(total), styles: { halign: 'right' as const } },
   ]);
 
   autoTable(doc, {
-    startY: y + 4,
+    startY: page2Y + 8,
     head,
-    body: body.length
-      ? body
-      : [[{
-          content: `Cuenta cerrada · ${countServicios} servicio${countServicios !== 1 ? 's' : ''} · detalle no disponible`,
-          colSpan: 4,
-          styles: { halign: 'center' as const, textColor: GREY }
-        }]],
-    theme: 'plain',
-    margin: { left: margin, right: margin },
-    styles: { font: 'helvetica', fontSize: 10, cellPadding: 3, textColor: INK, lineColor: LINE, lineWidth: 0.1 },
-    headStyles: { lineColor: WHITE, lineWidth: 0 },
+    body,
+    theme: 'grid',
+    margin: { left: marginX, right: marginX },
+    styles: {
+      font: 'helvetica',
+      fontSize: 9,
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
+      lineWidth: 0.25,
+      cellPadding: 2.8,
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.25,
+    },
+    columnStyles: {
+      0: { cellWidth: 26 }, // referencia
+      1: { cellWidth: 42 }, // tipo de servicio
+      2: { cellWidth: 'auto' }, // descripción
+      3: { cellWidth: 26, halign: 'right' }, // pago
+    },
   });
 
-  // Línea de total justo debajo de la tabla
-  const afterY = (doc as any).lastAutoTable.finalY + 8;
-  doc.setDrawColor(...INK);
-  doc.setLineWidth(0.4);
-  doc.line(margin, afterY - 4, pageW - margin, afterY - 4);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...INK);
-  doc.text('Total a Cobrar', margin, afterY);
-  doc.text(cop(total), pageW - margin, afterY, { align: 'right' });
-
-  // ---- Firma ----
-  let sigY = afterY + 40;
-  if (sigY + 10 > doc.internal.pageSize.getHeight() - 20) {
+  // Sección de firma
+  const finalTableY = (doc as any).lastAutoTable?.finalY ?? 180;
+  let sigY = finalTableY + 36;
+  if (sigY + 30 > pageH - 20) {
     doc.addPage();
     sigY = 40;
   }
-  doc.setDrawColor(...GREY);
-  doc.setLineWidth(0.3);
-  doc.line(margin + 10, sigY, margin + 70, sigY);
+
+  // Si tiene firma gráfica guardada
   if (cuenta.firmaTecnico) {
-    doc.addImage(cuenta.firmaTecnico, 'PNG', margin + 12, sigY - 19, 56, 17);
-  }
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...GREY);
-  doc.text('Firma del Técnico', margin + 40, sigY + 5, { align: 'center' });
-  if (cuenta.fechaFirma) {
-    doc.setFontSize(8);
-    doc.text(`Firmada el ${new Date(cuenta.fechaFirma).toLocaleDateString('es-CO')}`, margin + 40, sigY + 10, { align: 'center' });
+    try {
+      doc.addImage(cuenta.firmaTecnico, 'PNG', marginX, sigY - 24, 52, 22);
+    } catch {
+      // Ignorar si hay problema con la imagen base64
+    }
   }
 
-  // ---- Pie de página ----
-  const pageH = doc.internal.pageSize.getHeight();
-  doc.setDrawColor(...LIGHT);
-  doc.setLineWidth(0.3);
-  doc.line(margin, pageH - 16, pageW - margin, pageH - 16);
-  doc.setFontSize(8);
-  doc.setTextColor(...GREY);
-  doc.text(`Período ${mesNombre} ${cuenta.anio} · ${cuenta.tecnico}`, margin, pageH - 11);
-  doc.text('E&M Electronic Solutions', pageW - margin, pageH - 11, { align: 'right' });
+  // Línea de firma
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.35);
+  doc.line(marginX, sigY, marginX + 68, sigY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Firma aceptación de pago', marginX, sigY + 5.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text(`Nit: ${nitTecnico}`, marginX, sigY + 10.5);
+
+  const fechaFirmaTexto = cuenta.fechaFirma
+    ? new Date(cuenta.fechaFirma).toLocaleDateString('es-CO')
+    : `${ultimoDia}/${mesNombreCap}/${cuenta.anio}`;
+  doc.text(`Fecha: ${fechaFirmaTexto}`, marginX, sigY + 15.5);
 
   return doc;
 }
 
-// Construye y dispara la descarga del PDF.
 export function downloadCuentaPdf(cuenta: CuentaPdf): void {
   const doc = buildCuentaPdf(cuenta);
+  const pad2 = (n: number) => String(n).padStart(2, '0');
   const mesNum = pad2(cuenta.mes);
   const file = `cuenta-cobro-${cuenta.anio}-${mesNum}-${cuenta.tecnico
     .toLowerCase()

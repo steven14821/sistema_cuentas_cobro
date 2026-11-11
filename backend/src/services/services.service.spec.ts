@@ -82,6 +82,75 @@ describe('ServicesService', () => {
     );
   });
 
+  describe('createImportedService', () => {
+    it('saves an editable, unradicated service in the active period', async () => {
+      vi.setSystemTime(new Date('2026-10-05T15:00:00Z'));
+      prisma.tipos_servicio.findUnique.mockResolvedValue(TIPO);
+      prisma.cuentas_cobro.findUnique.mockResolvedValue(null);
+      prisma.cuentas_cobro.create.mockResolvedValue({
+        id: 'cuenta-importada',
+        usuario_id: 'u1',
+        mes: 9,
+        anio: 2026,
+        estado: 'Pendiente',
+        radicada: false,
+        servicios: [],
+      });
+      prisma.usuarios.findUnique.mockResolvedValue({ sede: 'Bucaramanga' });
+      prisma.servicios.findFirst.mockResolvedValue(null);
+      prisma.servicios.create.mockResolvedValue({
+        id: 'servicio-importado',
+        cuenta_cobro_id: 'cuenta-importada',
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: 'BUC-12345',
+        descripcion_especifica: 'Instalación',
+        valor_cobrado: 50_000,
+        estado: 'Pendiente',
+        fotos: ['data:image/jpeg;base64,abc='],
+        tipos_servicio: TIPO,
+      });
+
+      const result = await service.createImportedService('u1', {
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: '12345',
+        valor_cobrado: 95_000,
+        es_traslado: false,
+        descripcion_especifica: 'Instalación',
+        fotos: ['data:image/jpeg;base64,abc='],
+      });
+
+      expect(prisma.cuentas_cobro.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ mes: 9, anio: 2026, radicada: false }),
+        }),
+      );
+      expect(prisma.servicios.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            cuenta_cobro_id: 'cuenta-importada',
+            numero_orden: 'BUC-12345',
+            valor_cobrado: 50_000,
+            estado: 'Pendiente',
+          }),
+        }),
+      );
+      expect(result.estado).toBe('Pendiente');
+    });
+
+    it('rejects a service type that does not match the transfer flag', async () => {
+      prisma.tipos_servicio.findUnique.mockResolvedValue(TIPO);
+
+      await expect(service.createImportedService('u1', {
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: '12345',
+        valor_cobrado: 50_000,
+        es_traslado: true,
+        destino: 'ZULIA',
+        transporte: 'MOTO_PROPIA',
+      })).rejects.toThrow('Selecciona un tipo de servicio que corresponda a su clasificación.');
+    });
+  });
+
   describe('createService — ventana de carga (días 1-5, UTC-5)', () => {
     it('permite agregar servicios a una cuenta devuelta aunque la ventana esté cerrada', async () => {
       vi.setSystemTime(new Date('2026-10-10T15:00:00Z'));

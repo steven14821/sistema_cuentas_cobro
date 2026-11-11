@@ -1,3 +1,4 @@
+import { getColombiaTodayString } from '../lib/period';
 import React, { useState, useEffect } from 'react';
 
 type ExceptionForm = {
@@ -68,7 +69,7 @@ export const ExceptionModal = ({
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getColombiaTodayString();
 
   return (
     <div

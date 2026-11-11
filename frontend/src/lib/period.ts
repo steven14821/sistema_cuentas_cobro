@@ -27,6 +27,34 @@ export function getColombiaToday(base: Date = new Date()): FechaColombia {
   };
 }
 
+export function getColombiaTodayString(): string {
+  const hoy = getColombiaToday();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${hoy.anio}-${pad(hoy.mes)}-${pad(hoy.dia)}`;
+}
+
+// Formatea una fecha dada respetando la fecha calendario en Colombia (DD/MM/YYYY)
+export function formatFechaColombia(raw: string | Date | null | undefined): string {
+  if (!raw) return '—';
+  const str = typeof raw === 'string' ? raw : raw.toISOString();
+  const datePart = str.split('T')[0];
+  const [y, m, d] = datePart.split('-');
+  if (!y || !m || !d) return '—';
+  return `${d}/${m}/${y}`;
+}
+
+// Determina si una excepción sigue vigente hasta las 23:59:59.999 hora Colombia de la fecha dada
+export function isExcepcionVigente(rawDate: string | Date | null | undefined): boolean {
+  if (!rawDate) return false;
+  const str = typeof rawDate === 'string' ? rawDate : rawDate.toISOString();
+  const datePart = str.split('T')[0];
+  const [y, m, d] = datePart.split('-').map(Number);
+  if (!y || !m || !d) return false;
+  // Fin de ese día en Colombia: 23:59:59.999 Colombia = 04:59:59.999 UTC del día siguiente
+  const endOfDayUtc = Date.UTC(y, m - 1, d, 23, 59, 59, 999) + COLOMBIA_OFFSET_MS;
+  return Date.now() <= endOfDayUtc;
+}
+
 // La ventana de carga está abierta del día 1 al 5 (incluidos).
 export function isVentanaAbierta(dia: number): boolean {
   return dia >= 1 && dia <= 5;
