@@ -10,30 +10,31 @@ async function bootstrap() {
 
   const tariffs = [
     // Samsung
-    { nombre: 'SAMSUNG: Carry IN taller TV', valor: 18000 },
-    { nombre: 'SAMSUNG: Carry IN o ps linea blanca', valor: 18000 },
-    { nombre: 'SAMSUNG: Carry IN taller Monitor Gamer', valor: 16000 },
-    { nombre: 'SAMSUNG: Garantía taller equipos pequeños', valor: 11000 },
-    { nombre: 'SAMSUNG: Garantía TV IH (Carro Personal)', valor: 35000 },
-    { nombre: 'SAMSUNG: Garantía TV IH (60" o más)', valor: 45000 },
+    { nombre: 'SAMSUNG: Taller TV', valor: 18000 },
+    { nombre: 'SAMSUNG: Taller Linea blanca', valor: 18000 },
+    { nombre: 'SAMSUNG: Taller Monitor Gamer', valor: 16000 },
+    { nombre: 'SAMSUNG: Reparacion taller equipos pequeños', valor: 11000 },
+    { nombre: 'SAMSUNG: Reparacion TV IH (Carro Personal)', valor: 35000 },
+    { nombre: 'SAMSUNG: Reparacion TV IH (60" o más)', valor: 45000 },
     { nombre: 'SAMSUNG: Ayudantes', valor: 10000 },
-    { nombre: 'SAMSUNG: Garantía SR TV', valor: 18000 },
-    { nombre: 'SAMSUNG: Garantía TV almacén', valor: 25000 },
-    { nombre: 'SAMSUNG: Garantía TV almacén (65" o más)', valor: 35000 },
+    { nombre: 'SAMSUNG: Reparacion SR TV', valor: 18000 },
+    { nombre: 'SAMSUNG: Reparacion TV almacén', valor: 25000 },
+    { nombre: 'SAMSUNG: Reparacion TV almacén (65" o más)', valor: 35000 },
     { nombre: 'SAMSUNG: Garantia hornos y torres almacén', valor: 15000 },
-    { nombre: 'SAMSUNG: Garantía linea blanca almacén', valor: 20000 },
+    { nombre: 'SAMSUNG: Reparacion linea blanca almacén', valor: 20000 },
     { nombre: 'SAMSUNG: Garantia TV IH partes pequeñas', valor: 20000 },
     { nombre: 'SAMSUNG: Garantia TV IH partes pequeñas (65"/75" ayudante)', valor: 30000 },
     { nombre: 'SAMSUNG: Garantia TV IH partes pequeñas (desde 75")', valor: 50000 },
-    { nombre: 'SAMSUNG: Garantía aire', valor: 35000 },
+    { nombre: 'SAMSUNG: Reparacion aire', valor: 35000 },
     { nombre: 'SAMSUNG: Diagnostico aire', valor: 20000 },
-    { nombre: 'SAMSUNG: Garantía TV recogido almacén (barras)', valor: 47000 },
-    { nombre: 'SAMSUNG: Garantía TV mayor a 75"', valor: 20000 },
+    { nombre: 'SAMSUNG: Reparacion TV recogido almacén (barras)', valor: 47000 },
+    { nombre: 'SAMSUNG: Reparacion TV mayor a 75"', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación IH de barras led', valor: 38000 },
     { nombre: 'SAMSUNG: Reparación estufa', valor: 20000 },
-    { nombre: 'SAMSUNG: Garantía nevera', valor: 20000 },
-    { nombre: 'SAMSUNG: Garantía lavadora', valor: 20000 },
-    { nombre: 'SAMSUNG: Garantía lavadora (Tina Carga Frontal)', valor: 40000 },
+    { nombre: 'SAMSUNG: Reparacion nevera', valor: 20000 },
+    { nombre: 'SAMSUNG: Reparacion lavadora', valor: 20000 },
+    { nombre: 'SAMSUNG: Reparacion lavadora (Tina Carga Frontal)', valor: 40000 },
+    { nombre: 'SAMSUNG: Reparaci', valor: 40000 },
     { nombre: 'SAMSUNG: Instalación nevera', valor: 15000 },
     { nombre: 'SAMSUNG: Instalación lavadora superior', valor: 10000 },
     { nombre: 'SAMSUNG: Instalación lavadora frontal', valor: 14000 },
@@ -64,12 +65,12 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Eco Repair IH hasta 60"', valor: 38000 },
     { nombre: 'SAMSUNG: Eco Repair IH 65" y 70"', valor: 48000 },
     { nombre: 'SAMSUNG: Eco Repair IH desde 75" (incluye ayudantes)', valor: 75000 },
-    { nombre: 'SAMSUNG: Eco Repair transportadora/Carry IN', valor: 26000 },
+    { nombre: 'SAMSUNG: Eco Repair Taller', valor: 26000 },
     { nombre: 'SAMSUNG: Eco repair almacenes', valor: 33000 },
     { nombre: 'SAMSUNG: Limpieza partículas pantalla', valor: 30000 },
-    { nombre: 'SAMSUNG: Facturado Panel 75"', valor: 75000 },
-    { nombre: 'SAMSUNG: Facturado panel 58" para abajo', valor: 55000 },
-    
+    { nombre: 'SAMSUNG: Instalacion panel ow de 65" a 75"', valor: 75000 },
+    { nombre: 'SAMSUNG: Instalacion Panel ow hasta 58"', valor: 55000 },
+
     // Traslados BGA
     { nombre: 'TRASLADO: Piedecuesta', valor: 8000 },
     { nombre: 'TRASLADO: Giron', valor: 5000 },
@@ -106,25 +107,25 @@ async function bootstrap() {
     { nombre: 'HISENSE: Cambio de compresor', valor: 90000 },
     { nombre: 'HISENSE: Cambio de parte aires', valor: 35000 },
 
-    // Diagnóstico de garantía de TV disponible para todas las marcas.
+    // Diagnóstico de reparación de TV disponible para todas las marcas.
     ...(['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => ({
-      nombre: `${marca}: Diagnóstico garantía`,
+      nombre: `${marca}: Diagnóstico Reparacion`,
       valor: 10000,
     })),
 
     // Hyundai y TCL: catálogo exclusivo para TV, con las tarifas Samsung actuales.
     ...(['HYUNDAI', 'TCL'] as const).flatMap((marca) =>
       [
-        { servicio: 'Carry IN taller TV', valor: 18000 },
-        { servicio: 'Garantía TV IH (Carro Personal)', valor: 35000 },
-        { servicio: 'Garantía TV IH (60" o más)', valor: 45000 },
-        { servicio: 'Garantía SR TV', valor: 18000 },
-        { servicio: 'Garantía TV almacén', valor: 25000 },
-        { servicio: 'Garantía TV almacén (65" o más)', valor: 35000 },
-        { servicio: 'Garantía TV IH partes pequeñas', valor: 20000 },
-        { servicio: 'Garantía TV IH partes pequeñas (65"/75" ayudante)', valor: 30000 },
-        { servicio: 'Garantía TV IH partes pequeñas (desde 75")', valor: 50000 },
-        { servicio: 'Garantía TV recogido almacén (barras)', valor: 47000 },
+        { servicio: 'Taller TV', valor: 18000 },
+        { servicio: 'Reparacion TV IH (Carro Personal)', valor: 35000 },
+        { servicio: 'Reparacion TV IH (60" o más)', valor: 45000 },
+        { servicio: 'Reparacion SR TV', valor: 18000 },
+        { servicio: 'Reparacion TV almacén', valor: 25000 },
+        { servicio: 'Reparacion TV almacén (65" o más)', valor: 35000 },
+        { servicio: 'Reparacion TV IH partes pequeñas', valor: 20000 },
+        { servicio: 'Reparacion TV IH partes pequeñas (65"/75" ayudante)', valor: 30000 },
+        { servicio: 'Reparacion TV IH partes pequeñas (desde 75")', valor: 50000 },
+        { servicio: 'Reparacion TV recogido almacén (barras)', valor: 47000 },
         { servicio: 'Reparación IH de barras led', valor: 38000 },
         { servicio: 'Instalación TV (32" a 60" ayudante)', valor: 40000 },
         { servicio: 'Instalación TV (65" a 77" incluye ayudante)', valor: 50000 },
@@ -140,8 +141,8 @@ async function bootstrap() {
         { servicio: 'Eco Repair IH 65" y 70"', valor: 48000 },
         { servicio: 'Eco Repair IH desde 75" (incluye ayudantes)', valor: 75000 },
         { servicio: 'Limpieza partículas pantalla', valor: 30000 },
-        { servicio: 'Facturado Panel 75"', valor: 75000 },
-        { servicio: 'Facturado panel 58" para abajo', valor: 55000 },
+        { servicio: 'Instalacion panel ow de 65" a 75"', valor: 75000 },
+        { servicio: 'Instalacion Panel ow hasta 58"', valor: 55000 },
       ].map(({ servicio, valor }) => ({
         nombre: `${marca}: ${servicio}`,
         valor,
@@ -153,7 +154,7 @@ async function bootstrap() {
 
   for (const marca of ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const) {
     const oldName = `${marca}: Diagnóstico TV`;
-    const newName = `${marca}: Diagnóstico garantía`;
+    const newName = `${marca}: Diagnóstico Reparacion`;
     const oldType = await prisma.tipos_servicio.findUnique({ where: { nombre: oldName } });
     const newType = await prisma.tipos_servicio.findUnique({ where: { nombre: newName } });
     if (!oldType) continue;
@@ -179,7 +180,7 @@ async function bootstrap() {
       where: { nombre: t.nombre },
       update: {
         valor_estandar: t.valor,
-        ...(t.nombre.endsWith(': Diagnóstico garantía') ? { activo: true } : {}),
+        ...(t.nombre.endsWith(': Diagnóstico Reparacion') ? { activo: true } : {}),
       },
       create: {
         nombre: t.nombre,
