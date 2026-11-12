@@ -82,7 +82,8 @@ async function bootstrap() {
   console.log('🚀 Iniciando migración de nombres...');
 
   // ── Diagnóstico TV → garantía (legado) ───────────────────────────────────────
-  for (const marca of ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const) {
+  // ZURICH fuera: su 'Diagnóstico garantía' se purge y pasa a 'Diagnostico TV'.
+  for (const marca of ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL'] as const) {
     await renameType(`${marca}: Diagnóstico TV`, `${marca}: Diagnóstico garantía`);
   }
 
@@ -214,6 +215,29 @@ async function bootstrap() {
     }
   }
 
+  // ── Recolección: renombrados de esta ronda ───────────────────────────────────
+  await renameType(
+    'SAMSUNG: Recolección producto cambio lav/nev',
+    'SAMSUNG: Recolección producto cambio Lavadora sup/Nevera',
+  );
+  await renameType(
+    'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)',
+    'SAMSUNG: Recolección producto cambio Lavadora frontal (incluye ayudante)',
+  );
+  // "(+ ayudante)" pasa a llamarse "a partir de 75"" y sube a 30.000 en las 3 marcas.
+  for (const marca of ['SAMSUNG', 'HYUNDAI', 'TCL'] as const) {
+    await renameType(
+      `${marca}: Recolección TV cambio a partir de 75" (+ ayudante)`,
+      `${marca}: Recolección TV a partir de 75"`,
+      30000,
+    );
+    // Residuos de la ronda anterior que ya no están en el catálogo canónico.
+    await deleteType(`${marca}: Recolección TV cambio a partir de 75"`);
+    await deleteType(`${marca}: Recolección mano a mano (TV)`);
+    await deleteType(`${marca}: Reparación IH de barras led`);
+  }
+  await deleteType('SAMSUNG: Recolección mano a mano (Lav/Nev)');
+
   // ─────────────────────────────────────────────────────────────────────────────
   // PASO 2: Upsert del catálogo canónico (nombres definitivos)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -235,7 +259,6 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Reparación TV IH partes pequeñas (Desde 75" incluye ayudante)', valor: 50000 },
     { nombre: 'SAMSUNG: Reparación aire', valor: 35000 },
     { nombre: 'SAMSUNG: Diagnostico aire', valor: 20000 },
-    { nombre: 'SAMSUNG: Reparación IH de barras led', valor: 38000 },
     { nombre: 'SAMSUNG: Reparación estufa', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación nevera', valor: 20000 },
     { nombre: 'SAMSUNG: Reparación lavadora', valor: 20000 },
@@ -256,15 +279,13 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Reparación IH TV panel desde 75" (incluye ayudante)', valor: 50000 },
     { nombre: 'SAMSUNG: Recolección Nevecon cambio (incluye ayudante)', valor: 30000 },
     { nombre: 'SAMSUNG: Recolección Nevecon mano a mano', valor: 40000 },
-    { nombre: 'SAMSUNG: Recolección producto cambio lav/nev', valor: 15000 },
-    { nombre: 'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)', valor: 25000 },
+    { nombre: 'SAMSUNG: Recolección producto cambio Lavadora sup/Nevera', valor: 15000 },
+    { nombre: 'SAMSUNG: Recolección producto cambio Lavadora frontal (incluye ayudante)', valor: 25000 },
     { nombre: 'SAMSUNG: Recolección aire acondicionado split (incluye ayudante)', valor: 25000 },
     { nombre: 'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)', valor: 55000 },
     { nombre: 'SAMSUNG: Recolección TV cambio hasta 58"', valor: 10000 },
     { nombre: 'SAMSUNG: Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
-    { nombre: 'SAMSUNG: Recolección TV cambio a partir de 75" (+ ayudante)', valor: 25000 },
-    { nombre: 'SAMSUNG: Recolección mano a mano (Lav/Nev)', valor: 10000 },
-    { nombre: 'SAMSUNG: Recolección mano a mano (TV)', valor: 5000 },
+    { nombre: 'SAMSUNG: Recolección TV a partir de 75"', valor: 30000 },
     { nombre: 'SAMSUNG: Desmonte cualquier tamaño', valor: 5000 },
     { nombre: 'SAMSUNG: Desmonte carro propio', valor: 10000 },
     { nombre: 'SAMSUNG: Eco Repair IH hasta 60"', valor: 38000 },
@@ -312,10 +333,22 @@ async function bootstrap() {
     { nombre: 'HISENSE: Cambio de parte aires', valor: 35000 },
 
     // Diagnóstico de garantía — ⚠️ NO renombrar, se conserva tal cual.
-    ...(['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => ({
+    // ZURICH queda fuera: su catálogo propio se define más abajo.
+    ...(['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL'] as const).map((marca) => ({
       nombre: `${marca}: Diagnóstico garantía`,
       valor: 10000,
     })),
+
+    // ZURICH: catálogo propio de diagnósticos, sin tarifa de garantía heredada.
+    // 'Reparación' se siembra en 0 porque no lleva tarifa fija: el valor lo
+    // asigna el admin. La UI para eso aún no existe (pendiente de feature).
+    { nombre: 'ZURICH: Diagnostico TV', valor: 20000 },
+    { nombre: 'ZURICH: Diagnostico de productos pequeños taller', valor: 10000 },
+    { nombre: 'ZURICH: Diagnostico nevera/lavadora/secadora IH', valor: 15000 },
+    { nombre: 'ZURICH: Diagnostico Nevecon IH', valor: 20000 },
+    { nombre: 'ZURICH: Diagnostico lavavajillas IH', valor: 15000 },
+    { nombre: 'ZURICH: Diagnostico aire split', valor: 20000 },
+    { nombre: 'ZURICH: Reparación', valor: 0 },
 
     // Hyundai y TCL: catálogo exclusivo para TV.
     ...(['HYUNDAI', 'TCL'] as const).flatMap((marca) =>
@@ -327,7 +360,6 @@ async function bootstrap() {
         { servicio: 'Reparación TV IH partes pequeñas hasta 60"', valor: 20000 },
         { servicio: 'Reparación TV IH partes pequeñas (De 65" y 70" incluye ayudante)', valor: 30000 },
         { servicio: 'Reparación TV IH partes pequeñas (Desde 75" incluye ayudante)', valor: 50000 },
-        { servicio: 'Reparación IH de barras led', valor: 38000 },
         { servicio: 'Instalación TV (32" a 60" ayudante)', valor: 40000 },
         { servicio: 'Instalación TV (65" a 77" incluye ayudante)', valor: 50000 },
         { servicio: 'Instalación TV (80" a 100" incluye ayudante)', valor: 80000 },
@@ -336,8 +368,7 @@ async function bootstrap() {
         { servicio: 'Reparación IH TV panel desde 75" (incluye ayudante)', valor: 50000 },
         { servicio: 'Recolección TV cambio hasta 58"', valor: 10000 },
         { servicio: 'Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
-        { servicio: 'Recolección TV cambio a partir de 75" (+ ayudante)', valor: 25000 },
-        { servicio: 'Recolección mano a mano (TV)', valor: 5000 },
+        { servicio: 'Recolección TV a partir de 75"', valor: 30000 },
         { servicio: 'Eco Repair IH hasta 60"', valor: 38000 },
         { servicio: 'Eco Repair IH 65" y 70"', valor: 48000 },
         { servicio: 'Eco Repair IH desde 75" (incluye ayudantes)', valor: 75000 },
@@ -389,17 +420,25 @@ async function bootstrap() {
     'SAMSUNG: Eco Repair transportadora/Carry IN': 'SAMSUNG: Eco Repair Taller',
     'SAMSUNG: Recolección aire (desinstalar)':
       'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)',
+    'SAMSUNG: Recolección TV cambio a partir de 75" (+ ayudante)':
+      'SAMSUNG: Recolección TV a partir de 75"',
     'SAMSUNG: Recolección TV cambio a partir de 75"':
-      'SAMSUNG: Recolección TV cambio a partir de 75" (+ ayudante)',
+      'SAMSUNG: Recolección TV a partir de 75"',
     'SAMSUNG: Recolección producto cambio lav/nev (Frontal)':
-      'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)',
+      'SAMSUNG: Recolección producto cambio Lavadora frontal (incluye ayudante)',
+    'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)':
+      'SAMSUNG: Recolección producto cambio Lavadora frontal (incluye ayudante)',
+    'SAMSUNG: Recolección producto cambio lav/nev':
+      'SAMSUNG: Recolección producto cambio Lavadora sup/Nevera',
     // El catálogo usa "garantía" en minúscula; las variantes con mayúscula son dupe.
     ...Object.fromEntries(
-      (['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const).map((marca) => [
+      (['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL'] as const).map((marca) => [
         `${marca}: Diagnóstico Garantía`,
         `${marca}: Diagnóstico garantía`,
       ]),
     ),
+    // ZURICH ya no tiene "Diagnóstico garantía": su heredado pasa a "Diagnostico TV".
+    'ZURICH: Diagnóstico Garantía': 'ZURICH: Diagnostico TV',
   };
 
   const nombresCanonicos = new Set(tariffs.map((t) => t.nombre));
