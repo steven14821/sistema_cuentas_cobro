@@ -285,8 +285,6 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Recolección TV cambio hasta 58"', valor: 10000 },
     { nombre: 'SAMSUNG: Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
     { nombre: 'SAMSUNG: Recolección TV a partir de 75"', valor: 30000 },
-    { nombre: 'SAMSUNG: Desmonte cualquier tamaño', valor: 5000 },
-    { nombre: 'SAMSUNG: Desmonte carro propio', valor: 10000 },
     { nombre: 'SAMSUNG: Eco Repair IH hasta 60"', valor: 38000 },
     { nombre: 'SAMSUNG: Eco Repair IH 65" y 70"', valor: 48000 },
     { nombre: 'SAMSUNG: Eco Repair IH desde 75" (incluye ayudantes)', valor: 75000 },
