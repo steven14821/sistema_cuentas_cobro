@@ -25,7 +25,6 @@ function makePrisma() {
       deleteMany: vi.fn(),
       count: vi.fn(),
     },
-    ordenes_registradas: { create: vi.fn().mockResolvedValue({}) },
     usuarios: { findUnique: vi.fn() },
   };
   prisma.$transaction = vi.fn(async (callback: (tx: any) => unknown) => callback(prisma));
@@ -240,7 +239,7 @@ describe('ServicesService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('rechaza una orden registrada previamente en otra cuenta o período', async () => {
+    it('permite reutilizar un número de orden de otra cuenta o período', async () => {
       vi.setSystemTime(new Date('2026-10-03T15:00:00Z'));
       prisma.tipos_servicio.findUnique.mockResolvedValue(TIPO);
       prisma.cuentas_cobro.findUnique.mockResolvedValue({
@@ -249,13 +248,21 @@ describe('ServicesService', () => {
         radicada: false,
       });
       prisma.usuarios.findUnique.mockResolvedValue({ sede: 'Bucaramanga' });
-      prisma.ordenes_registradas.create.mockRejectedValue({ code: 'P2002' });
+      prisma.servicios.findFirst.mockResolvedValue(null);
+      prisma.servicios.create.mockResolvedValue({
+        id: 's-reutilizada',
+        cuenta_cobro_id: 'cuenta-actual',
+        numero_orden: 'BUC-12345',
+        valor_cobrado: '50000',
+        estado: 'Pendiente',
+        tipos_servicio: TIPO,
+        created_at: new Date(),
+      });
 
       await expect(service.createService('u1', {
         tipo_servicio_id: 'tipo-1',
         numero_orden: '12345',
-      })).rejects.toThrow('ya fue registrada anteriormente');
-      expect(prisma.servicios.create).not.toHaveBeenCalled();
+      })).resolves.toBeDefined();
     });
 
     it('rechaza fotos que no sean imágenes admitidas', async () => {
