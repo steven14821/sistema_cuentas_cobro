@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const MAX_PHOTO_BYTES = 1024 * 1024;
 const EXTRACTION_SCHEMA = {
   type: 'object',
@@ -74,27 +73,6 @@ export class AccountImportService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async extractPdf(file: UploadedBinaryFile): Promise<{ services: ImportedServiceData[] }> {
-    this.validateFile(file, 'application/pdf', MAX_PDF_BYTES);
-    const data = await this.extract({
-      instructions:
-        'Lee esta cuenta de cobro PDF y extrae sus servicios y traslados en el orden en que aparecen. ' +
-        'No inventes números de orden, tipos, descripciones, destinos ni valores: usa cadena vacía o null si no se leen. ' +
-        'El valor cobrado debe ser el valor escrito en el documento, no una tarifa calculada. ' +
-        'Marca es_traslado solo cuando el documento identifique claramente un traslado. ' +
-        'Asigna tipo_servicio únicamente usando un nombre exacto de la lista proporcionada; de lo contrario usa null. ' +
-        'No incluyas totales como servicios. Devuelve cada servicio individualmente.',
-      parts: [{
-        type: 'input_file',
-        filename: 'cuenta-de-cobro.pdf',
-        file_data: `data:application/pdf;base64,${file.buffer.toString('base64')}`,
-      }],
-      maxOutputTokens: 7000,
-    });
-
-    return this.mapTypes(data);
-  }
-
   async extractPhoto(file: UploadedBinaryFile): Promise<ImportedServiceData> {
     if (!file?.mimetype?.startsWith('image/')) {
       throw new BadRequestException('Selecciona una foto JPG, PNG o WebP.');
@@ -134,7 +112,6 @@ export class AccountImportService {
       throw new BadRequestException('El archivo está vacío o su formato no es válido.');
     }
     if (
-      (mimetype === 'application/pdf' && file.buffer.subarray(0, 1024).indexOf('%PDF-') === -1) ||
       (mimetype === 'image/jpeg' &&
         !(file.buffer[0] === 0xff && file.buffer[1] === 0xd8 && file.buffer[2] === 0xff)) ||
       (mimetype === 'image/png' && file.buffer.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') ||
@@ -145,11 +122,7 @@ export class AccountImportService {
       throw new BadRequestException('El contenido del archivo no coincide con su formato.');
     }
     if (file.size > maxBytes) {
-      throw new BadRequestException(
-        mimetype === 'application/pdf'
-          ? 'El PDF no puede superar 4 MB.'
-          : 'La foto comprimida no puede superar 1 MB.',
-      );
+      throw new BadRequestException('La foto comprimida no puede superar 1 MB.');
     }
   }
 

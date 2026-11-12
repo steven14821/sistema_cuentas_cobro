@@ -25,35 +25,6 @@ describe('AccountImportService', () => {
     vi.unstubAllEnvs();
   });
 
-  it('extracts PDF services, maps only known service types and disables OpenAI storage', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
-    const fetchMock = vi.fn().mockResolvedValue(openAiResponse({ services: [serviceResult] }));
-    vi.stubGlobal('fetch', fetchMock);
-    const prisma = {
-      tipos_servicio: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'type-1', nombre: 'Instalación' }]),
-      },
-    } as never;
-    const service = new AccountImportService(prisma);
-
-    const result = await service.extractPdf({
-      buffer: Buffer.from('%PDF-1.7 test document'),
-      size: 23,
-      mimetype: 'application/pdf',
-    });
-
-    expect(result.services[0]).toMatchObject({
-      numero_orden: '12345',
-      tipo_servicio_id: 'type-1',
-      valor_cobrado: 48_000,
-      confianza: 'alta',
-    });
-    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(request.store).toBe(false);
-    expect(request.input[0].content[1].type).toBe('input_file');
-    expect(request.input[0].content[1].file_data).toContain('data:application/pdf;base64,');
-  });
-
   it('extracts one photo service, normalizes the order and rejects unknown file signatures', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn().mockResolvedValue(openAiResponse({ services: [serviceResult] }));

@@ -7,8 +7,6 @@ import { AdminReviewPage } from './pages/AdminReviewPage';
 import { AccountDetailPage } from './pages/admin/AccountDetailPage';
 import { UserDetailPage } from './pages/admin/UserDetailPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
-import { AssistantPage } from './pages/admin/AssistantPage';
-import { AccountImportPage } from './pages/admin/AccountImportPage';
 import { useAuth } from './context/AuthContext';
 
 // Guard genérico por rol. `roles` lista los roles permitidos.
@@ -61,24 +59,6 @@ export const App = () => {
           element={
             <Protected roles={['admin']}>
               <AdminReviewPage />
-            </Protected>
-          }
-        />
-
-        <Route
-          path="/admin/assistant"
-          element={
-            <Protected roles={['admin']}>
-              <AssistantPage />
-            </Protected>
-          }
-        />
-
-        <Route
-          path="/admin/import-account"
-          element={
-            <Protected roles={['admin']}>
-              <AccountImportPage />
             </Protected>
           }
         />

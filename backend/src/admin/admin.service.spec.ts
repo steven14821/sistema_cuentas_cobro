@@ -326,3 +326,60 @@ describe('AdminService — deleteUser', () => {
     expect(result.email_notification).toEqual({ status: 'sent' });
   });
 });
+
+describe('AdminService — auditoría de tarifas en el detalle de cuenta', () => {
+  beforeEach(() => {
+    prisma = makePrisma();
+    approvalEmail = { sendAccountApproved: vi.fn() };
+    service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+  });
+
+  it('expone la auditoría por servicio y el resumen de la cuenta', async () => {
+    prisma.cuentas_cobro.findUnique.mockResolvedValue({
+      id: 'account-1',
+      usuario_id: 'tech-1',
+      usuarios: { nombre_completo: 'Técnico Uno', email: 'tech@example.com', sede: 'Bucaramanga' },
+      mes: 11,
+      anio: 2026,
+      estado: 'Pendiente',
+      radicada: true,
+      servicios: [
+        {
+          id: 's1',
+          numero_orden: 'BUC-12345',
+          descripcion_especifica: 'Cambio de panel',
+          valor_cobrado: 20000,
+          estado: 'Pendiente',
+          tipos_servicio: { nombre: 'SAMSUNG: Reparación TV', valor_estandar: 20000, activo: true },
+        },
+        {
+          id: 's2',
+          numero_orden: 'BUC-22222',
+          descripcion_especifica: null,
+          valor_cobrado: 35000,
+          estado: 'Pendiente',
+          tipos_servicio: { nombre: 'SAMSUNG: Reparación TV', valor_estandar: 20000, activo: true },
+        },
+        {
+          id: 's3',
+          numero_orden: 'T-BUC-33333',
+          descripcion_especifica: 'Traslado: Chía',
+          valor_cobrado: 15000,
+          estado: 'Pendiente',
+          tipos_servicio: { nombre: 'TRASLADO: Moto propia', valor_estandar: 0, activo: true },
+        },
+      ],
+    });
+
+    const result = await service.getAccountById('account-1');
+
+    expect(result.auditoria_tarifas).toEqual({ coincidencias: 1, diferencias: 1, revision_manual: 1 });
+    expect(result.servicios[0].auditoria_tarifa.status).toBe('match');
+    expect(result.servicios[1].auditoria_tarifa).toMatchObject({
+      status: 'mismatch',
+      expected: 20000,
+      difference: 15000,
+    });
+    expect(result.servicios[2].auditoria_tarifa.status).toBe('manual_review');
+  });
+});

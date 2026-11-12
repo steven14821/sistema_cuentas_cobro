@@ -33,6 +33,14 @@ export type PendingService = {
   anio: number | null;
 };
 
+export type TariffAudit = {
+  status: 'match' | 'mismatch' | 'manual_review';
+  charged: number;
+  expected: number | null;
+  difference: number | null;
+  explanation: string;
+};
+
 export type AccountService = {
   id: string;
   tipo_servicio_id: string;
@@ -43,6 +51,7 @@ export type AccountService = {
   valor_cobrado: number;
   estado: EstadoServicio;
   created_at?: string;
+  auditoria_tarifa: TariffAudit;
   auditoria?: {
     id: string;
     estado_anterior: EstadoServicio | null;
@@ -72,6 +81,11 @@ export type Account = {
   };
   total: number;
   total_servicios: number;
+  auditoria_tarifas: {
+    coincidencias: number;
+    diferencias: number;
+    revision_manual: number;
+  };
   servicios: AccountService[];
 };
 

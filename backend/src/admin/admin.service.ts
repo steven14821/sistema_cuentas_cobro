@@ -8,6 +8,7 @@ import {
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalEmailService, type ApprovalEmailResult } from './approval-email.service';
+import { auditServiceTariff, summarizeTariffAudits } from './account-audit';
 import { parseColombiaEndOfDay } from '../services/period.util';
 import * as bcrypt from 'bcrypt';
 
@@ -42,6 +43,16 @@ export class AdminService {
       valor_cobrado: Number(servicio.valor_cobrado),
       estado: servicio.estado,
       created_at: servicio.created_at,
+      auditoria_tarifa: auditServiceTariff({
+        numero_orden: servicio.numero_orden,
+        descripcion_especifica: servicio.descripcion_especifica,
+        valor_cobrado: Number(servicio.valor_cobrado),
+        tipo_servicio_nombre: servicio.tipos_servicio?.nombre ?? null,
+        valor_estandar: servicio.tipos_servicio
+          ? Number(servicio.tipos_servicio.valor_estandar)
+          : null,
+        tipo_servicio_activo: servicio.tipos_servicio?.activo ?? null,
+      }),
       auditoria: (servicio.auditoria_servicios ?? []).map((a: any) => ({
         id: a.id,
         estado_anterior: a.estado_anterior,
@@ -82,6 +93,9 @@ export class AdminService {
       fecha_firma: cuenta.fecha_firma ?? null,
       total,
       total_servicios: serviciosPrincipales.length,
+      auditoria_tarifas: summarizeTariffAudits(
+        servicios.map((s: { auditoria_tarifa: ReturnType<typeof auditServiceTariff> }) => s.auditoria_tarifa),
+      ),
       servicios,
     };
   }
