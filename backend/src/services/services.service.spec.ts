@@ -82,75 +82,6 @@ describe('ServicesService', () => {
     );
   });
 
-  describe('createImportedService', () => {
-    it('saves an editable, unradicated service in the active period', async () => {
-      vi.setSystemTime(new Date('2026-10-05T15:00:00Z'));
-      prisma.tipos_servicio.findUnique.mockResolvedValue(TIPO);
-      prisma.cuentas_cobro.findUnique.mockResolvedValue(null);
-      prisma.cuentas_cobro.create.mockResolvedValue({
-        id: 'cuenta-importada',
-        usuario_id: 'u1',
-        mes: 9,
-        anio: 2026,
-        estado: 'Pendiente',
-        radicada: false,
-        servicios: [],
-      });
-      prisma.usuarios.findUnique.mockResolvedValue({ sede: 'Bucaramanga' });
-      prisma.servicios.findFirst.mockResolvedValue(null);
-      prisma.servicios.create.mockResolvedValue({
-        id: 'servicio-importado',
-        cuenta_cobro_id: 'cuenta-importada',
-        tipo_servicio_id: 'tipo-1',
-        numero_orden: 'BUC-12345',
-        descripcion_especifica: 'Instalación',
-        valor_cobrado: 50_000,
-        estado: 'Pendiente',
-        fotos: ['data:image/jpeg;base64,abc='],
-        tipos_servicio: TIPO,
-      });
-
-      const result = await service.createImportedService('u1', {
-        tipo_servicio_id: 'tipo-1',
-        numero_orden: '12345',
-        valor_cobrado: 95_000,
-        es_traslado: false,
-        descripcion_especifica: 'Instalación',
-        fotos: ['data:image/jpeg;base64,abc='],
-      });
-
-      expect(prisma.cuentas_cobro.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ mes: 9, anio: 2026, radicada: false }),
-        }),
-      );
-      expect(prisma.servicios.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            cuenta_cobro_id: 'cuenta-importada',
-            numero_orden: 'BUC-12345',
-            valor_cobrado: 50_000,
-            estado: 'Pendiente',
-          }),
-        }),
-      );
-      expect(result.estado).toBe('Pendiente');
-    });
-
-    it('rejects a service type that does not match the transfer flag', async () => {
-      prisma.tipos_servicio.findUnique.mockResolvedValue(TIPO);
-
-      await expect(service.createImportedService('u1', {
-        tipo_servicio_id: 'tipo-1',
-        numero_orden: '12345',
-        valor_cobrado: 50_000,
-        es_traslado: true,
-        destino: 'ZULIA',
-        transporte: 'MOTO_PROPIA',
-      })).rejects.toThrow('Selecciona un tipo de servicio que corresponda a su clasificación.');
-    });
-  });
-
   describe('createService — ventana de carga (días 1-5, UTC-5)', () => {
     it('permite agregar servicios a una cuenta devuelta aunque la ventana esté cerrada', async () => {
       vi.setSystemTime(new Date('2026-10-10T15:00:00Z'));
@@ -339,18 +270,34 @@ describe('ServicesService', () => {
       expect(prisma.cuentas_cobro.create).not.toHaveBeenCalled();
     });
 
-    it('exige una foto de puertas al registrar el desmonte de una recogida de nevecon', async () => {
+    it('exige una foto de puertas al registrar el desmonte en nevecon mano a mano', async () => {
       vi.setSystemTime(new Date('2026-10-03T15:00:00Z'));
       prisma.tipos_servicio.findUnique.mockResolvedValue({
         ...TIPO,
-        nombre: 'SAMSUNG: Recolección Nevecon cambio',
+        nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
       });
 
       await expect(service.createService('u1', {
         tipo_servicio_id: 'tipo-1',
         numero_orden: '12345',
-        puertas_desmontadas: 2,
+        puertas_nevecon_antiguo: 2,
       })).rejects.toThrow('Agrega al menos una foto');
+      expect(prisma.cuentas_cobro.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza el desmonte de puertas en un cambio de nevecon', async () => {
+      vi.setSystemTime(new Date('2026-10-03T15:00:00Z'));
+      prisma.tipos_servicio.findUnique.mockResolvedValue({
+        ...TIPO,
+        nombre: 'SAMSUNG: Recolección Nevecon cambio (incluye ayudante)',
+      });
+
+      await expect(service.createService('u1', {
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: '12345',
+        puertas_nevecon_antiguo: 1,
+        fotos_puertas: ['data:image/png;base64,door='],
+      })).rejects.toThrow('solo aplica a la recolección de nevecon mano a mano');
       expect(prisma.cuentas_cobro.create).not.toHaveBeenCalled();
     });
 
@@ -429,11 +376,11 @@ describe('ServicesService', () => {
       );
     });
 
-    it('aplica $10.000 por puerta (máximo cuatro) y $10.000 por ayudante', async () => {
+    it('aplica $10.000 por puerta de cada nevecon (máximo cuatro por equipo) y $10.000 por ayudante', async () => {
       vi.setSystemTime(new Date('2026-10-03T15:00:00Z'));
       prisma.tipos_servicio.findUnique.mockResolvedValue({
         ...TIPO,
-        nombre: 'SAMSUNG: Recolección Nevecon cambio',
+        nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
       });
       prisma.cuentas_cobro.findUnique.mockResolvedValue({
         id: 'cuenta-1',
@@ -447,7 +394,7 @@ describe('ServicesService', () => {
         cuenta_cobro_id: 'cuenta-1',
         tipo_servicio_id: 'tipo-1',
         numero_orden: 'BUC-12345',
-        descripcion_especifica: 'Recolección: Puertas desmontadas: 3 (fotos: 1), Ayudante: sí (fotos del motivo: 1)',
+        descripcion_especifica: 'Recolección: Puertas desmontadas: nevecon antiguo 2, nevecon nuevo 1 (fotos: 1), Ayudante: sí (fotos del motivo: 1)',
         valor_cobrado: '90000',
         estado: 'Pendiente',
         created_at: new Date(),
@@ -458,7 +405,8 @@ describe('ServicesService', () => {
         tipo_servicio_id: 'tipo-1',
         numero_orden: '12345',
         descripcion_especifica: '',
-        puertas_desmontadas: 3,
+        puertas_nevecon_antiguo: 2,
+        puertas_nevecon_nuevo: 1,
         requiere_ayudante: true,
         motivo_ayudante: 'El equipo era muy pesado para moverlo solo.',
         fotos_puertas: ['data:image/png;base64,door='],
@@ -468,7 +416,7 @@ describe('ServicesService', () => {
       expect(prisma.servicios.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            descripcion_especifica: 'Recolección: Puertas desmontadas: 3 (fotos: 1), Ayudante: sí (motivo: El equipo era muy pesado para moverlo solo., fotos del motivo: 1)',
+            descripcion_especifica: 'Recolección: Puertas desmontadas: nevecon antiguo 2, nevecon nuevo 1 (fotos: 1), Ayudante: sí (motivo: El equipo era muy pesado para moverlo solo., fotos del motivo: 1)',
             valor_cobrado: 90_000,
             fotos: ['data:image/png;base64,door=', 'data:image/png;base64,helper='],
           }),
@@ -476,17 +424,56 @@ describe('ServicesService', () => {
       );
     });
 
-    it('rechaza más de cuatro puertas desmontadas', async () => {
+    it('acepta cuatro puertas en cada nevecon', async () => {
       vi.setSystemTime(new Date('2026-10-03T15:00:00Z'));
       prisma.tipos_servicio.findUnique.mockResolvedValue({
         ...TIPO,
-        nombre: 'SAMSUNG: Recolección Nevecon cambio',
+        nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
+      });
+      prisma.cuentas_cobro.findUnique.mockResolvedValue({
+        id: 'cuenta-1',
+        estado: 'Pendiente',
+        radicada: false,
+      });
+      prisma.usuarios.findUnique.mockResolvedValue({ sede: 'Bucaramanga' });
+      prisma.servicios.findFirst.mockResolvedValue(null);
+      prisma.servicios.create.mockResolvedValue({
+        id: 's1',
+        cuenta_cobro_id: 'cuenta-1',
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: 'BUC-12345',
+        valor_cobrado: '130000',
+        estado: 'Pendiente',
+        created_at: new Date(),
+        tipos_servicio: TIPO,
+      });
+
+      await service.createService('u1', {
+        tipo_servicio_id: 'tipo-1',
+        numero_orden: '12345',
+        puertas_nevecon_antiguo: 4,
+        puertas_nevecon_nuevo: 4,
+        fotos_puertas: ['data:image/png;base64,door='],
+      });
+
+      expect(prisma.servicios.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ valor_cobrado: 130_000 }),
+        }),
+      );
+    });
+
+    it('rechaza más de cuatro puertas en un mismo nevecon', async () => {
+      vi.setSystemTime(new Date('2026-10-03T15:00:00Z'));
+      prisma.tipos_servicio.findUnique.mockResolvedValue({
+        ...TIPO,
+        nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
       });
 
       await expect(service.createService('u1', {
         tipo_servicio_id: 'tipo-1',
         numero_orden: '12345',
-        puertas_desmontadas: 5,
+        puertas_nevecon_nuevo: 5,
       })).rejects.toThrow('entre 0 y 4');
       expect(prisma.cuentas_cobro.create).not.toHaveBeenCalled();
     });

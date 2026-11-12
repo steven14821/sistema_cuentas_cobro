@@ -528,6 +528,17 @@ body,
   color: var(--purple-text);
 }
 
+.admin-service-action.assign-value {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.admin-service-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .service-type-backdrop {
   position: fixed;
   z-index: 450;
@@ -609,6 +620,19 @@ body,
   color: var(--text);
   font: inherit;
   font-size: 13px;
+}
+
+.service-type-modal input {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .service-type-price-note {

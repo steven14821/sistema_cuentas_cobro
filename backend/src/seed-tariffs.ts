@@ -248,7 +248,6 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Taller Linea blanca', valor: 18000 },
     { nombre: 'SAMSUNG: Taller Monitor Gamer', valor: 16000 },
     { nombre: 'SAMSUNG: Reparación taller equipos pequeños', valor: 11000 },
-    { nombre: 'SAMSUNG: Ayudantes', valor: 10000 },
     { nombre: 'SAMSUNG: Reparación SR TV', valor: 18000 },
     { nombre: 'SAMSUNG: Reparación TV almacén hasta 60"', valor: 25000 },
     { nombre: 'SAMSUNG: Reparación TV almacén desde 65"', valor: 35000 },

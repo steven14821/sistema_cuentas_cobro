@@ -42,7 +42,13 @@ export class CreateServiceDto {
   @IsInt()
   @Min(0)
   @Max(4)
-  puertas_desmontadas?: number;
+  puertas_nevecon_antiguo?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(4)
+  puertas_nevecon_nuevo?: number;
 
   @IsOptional()
   @IsBoolean()

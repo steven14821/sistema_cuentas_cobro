@@ -15,6 +15,7 @@ type ServiceTariffInput = {
   tipo_servicio_nombre?: string | null;
   valor_estandar?: number | null;
   tipo_servicio_activo?: boolean | null;
+  requiere_valor_admin?: boolean | null;
 };
 
 const normalize = (value: string) =>
@@ -42,6 +43,15 @@ export function auditServiceTariff(service: ServiceTariffInput): TariffAuditResu
     );
   }
 
+  if (service.requiere_valor_admin) {
+    return needsManualReview(
+      charged,
+      charged > 0
+        ? 'El valor de este servicio lo asigna el administrador; no tiene tarifa fija.'
+        : 'Falta que el administrador asigne el valor de este servicio.',
+    );
+  }
+
   const standard = Number(service.valor_estandar);
   if (!Number.isFinite(charged) || !Number.isFinite(standard)) {
     return needsManualReview(charged, 'No hay una tarifa estándar disponible para comparar este servicio.');
@@ -53,10 +63,17 @@ export function auditServiceTariff(service: ServiceTariffInput): TariffAuditResu
     );
   }
 
-  const doors = Number(description.match(/puertas desmontadas:\s*(\d+)/)?.[1] ?? 0);
+  const splitDoors = description.match(/puertas desmontadas:\s*nevecon antiguo (\d+), nevecon nuevo (\d+)/);
+  // Las órdenes guardadas antes del desglose por equipo traen un único total.
+  const legacyDoors = splitDoors ? null : description.match(/puertas desmontadas:\s*(\d+)/);
+  const doorsOld = Number(splitDoors?.[1] ?? legacyDoors?.[1] ?? 0);
+  const doorsNew = Number(splitDoors?.[2] ?? 0);
+  const doors = doorsOld + doorsNew;
   const hasHelper = /ayudante:\s*si\b/.test(description);
   const isCollection = /recoleccion|recogida/.test(serviceName);
-  if (doors > 0 && (!isCollection || !serviceName.includes('nevecon') || doors > 4)) {
+  const isNeveconManoAMano = isCollection && serviceName.includes('nevecon') &&
+    serviceName.includes('mano a mano');
+  if (doors > 0 && (!isNeveconManoAMano || doorsOld > 4 || doorsNew > 4)) {
     return needsManualReview(
       charged,
       'El adicional de puertas no coincide con las reglas permitidas para este tipo de servicio.',
@@ -75,7 +92,11 @@ export function auditServiceTariff(service: ServiceTariffInput): TariffAuditResu
   const difference = charged - expected;
   const explanation = [
     `Tarifa estándar vigente: ${standard}.`,
-    doors > 0 ? `${doors} puerta(s): ${doors * 10_000}.` : null,
+    doors > 0
+      ? splitDoors
+        ? `Puertas: ${doorsOld} del nevecon antiguo y ${doorsNew} del nuevo: ${doors * 10_000}.`
+        : `${doors} puerta(s): ${doors * 10_000}.`
+      : null,
     helperCharge > 0 ? 'Adicional de ayudante: 10000.' : null,
   ].filter(Boolean).join(' ');
 

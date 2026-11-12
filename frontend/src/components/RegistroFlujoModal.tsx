@@ -10,14 +10,15 @@ type MarcaOption = 'SAMSUNG' | 'HISENSE' | 'HYUNDAI' | 'TCL' | 'ZURICH';
 
 type Paso =
   | { kind: 'servicio' }
-  | { kind: 'traslado'; servicioId: string; tipoId: string; tipoNombre: string; valorBase: number; valorServicio: number; puertasDesmontadas: number; requiereAyudante: boolean; numeroOrden: string }
-  | { kind: 'final'; servicioId: string; tipoNombre: string; valorBase: number; valorServicio: number; puertasDesmontadas: number; requiereAyudante: boolean; trasladoId: string; trasladoNombre: string; trasladoValor: number; numeroOrden: string }
+  | { kind: 'traslado'; servicioId: string; tipoId: string; tipoNombre: string; valorBase: number; valorPorDefinir: boolean; valorServicio: number; puertasNeveconAntiguo: number; puertasNeveconNuevo: number; requiereAyudante: boolean; numeroOrden: string }
+  | { kind: 'final'; servicioId: string; tipoNombre: string; valorBase: number; valorPorDefinir: boolean; valorServicio: number; puertasNeveconAntiguo: number; puertasNeveconNuevo: number; requiereAyudante: boolean; trasladoId: string; trasladoNombre: string; trasladoValor: number; numeroOrden: string }
   | { kind: 'error'; message: string };
 
 export interface TipoServicioOption {
   id: string;
   nombre: string;
   valor_estandar: number;
+  requiere_valor_admin?: boolean;
 }
 
 // Catálogo de destinos por sede y su tarifa fija directa
@@ -83,7 +84,8 @@ export const RegistroFlujoModal = ({
     descripcion_especifica: string;
     fotos_puertas?: string[];
     fotos_ayudante?: string[];
-    puertas_desmontadas?: number;
+    puertas_nevecon_antiguo?: number;
+    puertas_nevecon_nuevo?: number;
     requiere_ayudante?: boolean;
     motivo_ayudante?: string;
   }) => Promise<ServiceApi>;
@@ -104,7 +106,8 @@ export const RegistroFlujoModal = ({
   const [tipoId, setTipoId] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [desmontoPuertas, setDesmontoPuertas] = useState(false);
-  const [puertasDesmontadas, setPuertasDesmontadas] = useState(0);
+  const [puertasNeveconAntiguo, setPuertasNeveconAntiguo] = useState(0);
+  const [puertasNeveconNuevo, setPuertasNeveconNuevo] = useState(0);
   const [requiereAyudante, setRequiereAyudante] = useState(false);
   const [motivoAyudante, setMotivoAyudante] = useState('');
   const [transportType, setTransportType] = useState<TransportType>('MOTO_PROPIA');
@@ -137,7 +140,8 @@ export const RegistroFlujoModal = ({
         setTipoId(draft.tipoId);
         setDescripcion(draft.descripcion);
         setDesmontoPuertas(draft.desmontoPuertas);
-        setPuertasDesmontadas(draft.puertasDesmontadas);
+        setPuertasNeveconAntiguo(draft.puertasNeveconAntiguo);
+        setPuertasNeveconNuevo(draft.puertasNeveconNuevo);
         setRequiereAyudante(draft.requiereAyudante);
         setMotivoAyudante(draft.motivoAyudante);
         setFotosPuertas(draft.fotosPuertas);
@@ -166,7 +170,8 @@ export const RegistroFlujoModal = ({
             tipoId,
             descripcion,
             desmontoPuertas,
-            puertasDesmontadas,
+            puertasNeveconAntiguo,
+            puertasNeveconNuevo,
             requiereAyudante,
             motivoAyudante,
             fotosPuertas,
@@ -177,7 +182,7 @@ export const RegistroFlujoModal = ({
     }, 500);
     return () => window.clearTimeout(timeout);
   }, [open, user?.id, draftReady, paso.kind, numeroOrden, marcaSeleccionada, tipoId, descripcion,
-    desmontoPuertas, puertasDesmontadas, requiereAyudante, motivoAyudante, fotosPuertas, fotosAyudante]);
+    desmontoPuertas, puertasNeveconAntiguo, puertasNeveconNuevo, requiereAyudante, motivoAyudante, fotosPuertas, fotosAyudante]);
 
   if (!open) return null;
 
@@ -190,19 +195,22 @@ export const RegistroFlujoModal = ({
   const lugares = sede === 'Cúcuta' ? lugaresCucuta : lugaresBucaramanga;
 
   const tipoActual = types.find((t) => t.id === tipoId) ?? null;
-  const tipoValor = tipoActual ? Number(tipoActual.valor_estandar) : 0;
+  const valorPorDefinirAdmin = !!tipoActual?.requiere_valor_admin;
+  const tipoValor = tipoActual && !valorPorDefinirAdmin ? Number(tipoActual.valor_estandar) : 0;
   const nombreTipoNormalizado = tipoActual?.nombre.normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').toLowerCase() ?? '';
   const esRecoleccion = /recoleccion|recogida/.test(nombreTipoNormalizado);
   const incluyeAyudante = esRecoleccion && nombreTipoNormalizado.includes('incluye ayudante');
   const esRecoleccionConAyudanteOpcional = esRecoleccion && !incluyeAyudante;
-  const esRecogidaNevecon = esRecoleccion && nombreTipoNormalizado.includes('nevecon');
-  const requiereFotoPuertas = esRecogidaNevecon && desmontoPuertas;
+  const esNeveconManoAMano = esRecoleccion && nombreTipoNormalizado.includes('nevecon') &&
+    nombreTipoNormalizado.includes('mano a mano');
+  const requiereFotoPuertas = esNeveconManoAMano && desmontoPuertas;
   const requiereFotoAyudante = esRecoleccionConAyudanteOpcional && requiereAyudante;
-  const cantidadPuertasValida = Number.isInteger(puertasDesmontadas) &&
-    puertasDesmontadas >= 1 && puertasDesmontadas <= 4;
+  const cantidadPuertasValida = [puertasNeveconAntiguo, puertasNeveconNuevo].every(
+    (cantidad) => Number.isInteger(cantidad) && cantidad >= 0 && cantidad <= 4,
+  ) && puertasNeveconAntiguo + puertasNeveconNuevo >= 1;
   const costoPuertas = desmontoPuertas && cantidadPuertasValida
-    ? puertasDesmontadas * 10_000
+    ? (puertasNeveconAntiguo + puertasNeveconNuevo) * 10_000
     : 0;
   const costoAyudante = requiereAyudante ? 10_000 : 0;
   const totalAdicionales = costoPuertas + costoAyudante;
@@ -277,7 +285,8 @@ export const RegistroFlujoModal = ({
     setTipoId('');
     setDescripcion('');
     setDesmontoPuertas(false);
-    setPuertasDesmontadas(0);
+    setPuertasNeveconAntiguo(0);
+    setPuertasNeveconNuevo(0);
     setRequiereAyudante(false);
     setMotivoAyudante('');
     setTransportType('MOTO_PROPIA');
@@ -308,7 +317,8 @@ export const RegistroFlujoModal = ({
               tipoId,
               descripcion,
               desmontoPuertas,
-              puertasDesmontadas,
+              puertasNeveconAntiguo,
+              puertasNeveconNuevo,
               requiereAyudante,
               motivoAyudante,
               fotosPuertas,
@@ -438,8 +448,8 @@ export const RegistroFlujoModal = ({
       return;
     }
 
-    if (requiereFotoPuertas && (!Number.isInteger(puertasDesmontadas) || puertasDesmontadas < 1 || puertasDesmontadas > 4)) {
-      setError('Escribe una cantidad de puertas entre 1 y 4.');
+    if (requiereFotoPuertas && !cantidadPuertasValida) {
+      setError('Indica cuántas puertas desmontaste de cada nevecon: de 0 a 4 por equipo y al menos una en total.');
       return;
     }
     if (requiereFotoPuertas && fotosPuertas.length === 0) {
@@ -464,7 +474,10 @@ export const RegistroFlujoModal = ({
         descripcion_especifica: descripcion.trim(),
         fotos_puertas: fotosPuertas,
         fotos_ayudante: fotosAyudante,
-        ...(esRecogidaNevecon ? { puertas_desmontadas: puertasDesmontadas } : {}),
+        ...(esNeveconManoAMano ? {
+          puertas_nevecon_antiguo: puertasNeveconAntiguo,
+          puertas_nevecon_nuevo: puertasNeveconNuevo,
+        } : {}),
         ...(esRecoleccionConAyudanteOpcional ? { requiere_ayudante: requiereAyudante } : {}),
         ...(requiereAyudante ? { motivo_ayudante: motivoAyudante.trim() } : {}),
       });
@@ -484,9 +497,11 @@ export const RegistroFlujoModal = ({
         servicioId: servicio.id,
         tipoId,
         tipoNombre: tipo?.nombre ?? '',
-        valorBase: tipo ? Number(tipo.valor_estandar) : 0,
+        valorBase: tipo && !tipo.requiere_valor_admin ? Number(tipo.valor_estandar) : 0,
+        valorPorDefinir: !!tipo?.requiere_valor_admin,
         valorServicio: Number(servicio.valor_cobrado),
-        puertasDesmontadas,
+        puertasNeveconAntiguo,
+        puertasNeveconNuevo,
         requiereAyudante: esRecoleccionConAyudanteOpcional && requiereAyudante,
         numeroOrden: cleanDigits,
       });
@@ -573,8 +588,10 @@ export const RegistroFlujoModal = ({
         servicioId: prev.servicioId,
         tipoNombre: prev.tipoNombre,
         valorBase: prev.valorBase,
+        valorPorDefinir: prev.valorPorDefinir,
         valorServicio: prev.valorServicio,
-        puertasDesmontadas: prev.puertasDesmontadas,
+        puertasNeveconAntiguo: prev.puertasNeveconAntiguo,
+        puertasNeveconNuevo: prev.puertasNeveconNuevo,
         requiereAyudante: prev.requiereAyudante,
         trasladoId: traslado.id,
         trasladoNombre: `${lugar?.nombre} (${tipoVehiculoLabel[transportType]})`,
@@ -594,7 +611,11 @@ export const RegistroFlujoModal = ({
   };
 
   // Render del Ticket de Compra para el técnico (solo muestra el número de orden limpio)
-  const renderTicket = (items: { label: string; sub?: string; valor: number }[], total: number) => {
+  const renderTicket = (
+    items: { label: string; sub?: string; valor: number; porDefinir?: boolean }[],
+    total: number,
+    totalPorDefinir = false,
+  ) => {
     const ordenLimpia = numeroOrden.replace(/^(T-)?(BUC|CUC)-/i, '').trim();
 
     return (
@@ -619,7 +640,7 @@ export const RegistroFlujoModal = ({
                 {it.sub && <div style={{ fontSize: '12px', color: 'var(--text-slate)', fontWeight: 600 }}>{it.sub}</div>}
               </div>
               <span style={{ fontWeight: '800', color: 'var(--blue-solid)', whiteSpace: 'nowrap' }}>
-                {formatCOP(it.valor)}
+                {it.porDefinir ? 'Por definir' : formatCOP(it.valor)}
               </span>
             </div>
           ))}
@@ -627,8 +648,15 @@ export const RegistroFlujoModal = ({
 
         <div style={ticketTotalStyle}>
           <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--ink)' }}>Subtotal de la orden</span>
-          <span style={{ fontWeight: '800', fontSize: '18px', color: 'var(--blue)' }}>{formatCOP(total)}</span>
+          <span style={{ fontWeight: '800', fontSize: '18px', color: 'var(--blue)' }}>
+            {totalPorDefinir ? 'Por definir' : formatCOP(total)}
+          </span>
         </div>
+        {totalPorDefinir && (
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--warning-text)', fontWeight: 600 }}>
+            El administrador asignará el valor de este servicio antes de aprobar la cuenta.
+          </p>
+        )}
       </div>
     );
   };
@@ -638,8 +666,8 @@ export const RegistroFlujoModal = ({
       case 'servicio': {
         const ticketItems = tipoActual
           ? [
-              { label: tipoActual.nombre, sub: 'Servicio técnico', valor: tipoValor },
-              ...(costoPuertas > 0 ? [{ label: `Desmonte de puertas (${puertasDesmontadas})`, sub: '$10.000 por puerta', valor: costoPuertas }] : []),
+              { label: tipoActual.nombre, sub: 'Servicio técnico', valor: tipoValor, porDefinir: valorPorDefinirAdmin },
+              ...(costoPuertas > 0 ? [{ label: `Desmonte de puertas (antiguo ${puertasNeveconAntiguo}, nuevo ${puertasNeveconNuevo})`, sub: '$10.000 por puerta', valor: costoPuertas }] : []),
               ...(costoAyudante > 0 ? [{ label: 'Servicio con ayudante', sub: 'Adicional por apoyo', valor: costoAyudante }] : []),
             ]
           : [];
@@ -762,14 +790,16 @@ export const RegistroFlujoModal = ({
                     const normalizedName = selectedType?.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() ?? '';
                     const selectedIsCollection = /recoleccion|recogida/.test(normalizedName);
                     const selectedIncludesHelper = selectedIsCollection && normalizedName.includes('incluye ayudante');
-                    const selectedIsNevecon = selectedIsCollection && normalizedName.includes('nevecon');
+                    const selectedIsNevecon = selectedIsCollection && normalizedName.includes('nevecon') &&
+                      normalizedName.includes('mano a mano');
                     if (!selectedIsCollection || selectedIncludesHelper) {
                       setRequiereAyudante(false);
                       setFotosAyudante([]);
                     }
                     if (!selectedIsNevecon) {
                       setDesmontoPuertas(false);
-                      setPuertasDesmontadas(0);
+                      setPuertasNeveconAntiguo(0);
+                      setPuertasNeveconNuevo(0);
                       setFotosPuertas([]);
                     }
                     if (activeValidation) setError('');
@@ -790,6 +820,11 @@ export const RegistroFlujoModal = ({
                   ))}
                 </select>
                 {fieldErrors.type && <p role="alert" style={fieldErrorStyle}>{fieldErrors.type}</p>}
+                {valorPorDefinirAdmin && (
+                  <p role="status" style={{ margin: '2px 0 0', padding: '9px 11px', borderRadius: 9, background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', color: 'var(--warning-text)', fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+                    Este servicio no tiene tarifa fija: el administrador asignará el valor. Describe con detalle qué se cambió.
+                  </p>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -812,9 +847,9 @@ export const RegistroFlujoModal = ({
                 {fieldErrors.description && <p role="alert" style={fieldErrorStyle}>{fieldErrors.description}</p>}
               </div>
 
-              {esRecogidaNevecon && (
+              {esNeveconManoAMano && (
                 <fieldset style={{ margin: 0, padding: 14, borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
-                  <legend style={{ padding: '0 6px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Recogida de nevecon</legend>
+                  <legend style={{ padding: '0 6px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Recolección de nevecon mano a mano</legend>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <label htmlFor="doors-removed" style={checkboxLabelStyle}>¿Desmontaste puertas?</label>
                     <select
@@ -823,8 +858,11 @@ export const RegistroFlujoModal = ({
                       onChange={(event) => {
                         const desmontadas = event.target.value === 'si';
                         setDesmontoPuertas(desmontadas);
-                        setPuertasDesmontadas(desmontadas ? Math.max(puertasDesmontadas, 1) : 0);
-                        if (!desmontadas) setFotosPuertas([]);
+                        setPuertasNeveconAntiguo(desmontadas ? Math.max(puertasNeveconAntiguo, 1) : 0);
+                        if (!desmontadas) {
+                          setPuertasNeveconNuevo(0);
+                          setFotosPuertas([]);
+                        }
                       }}
                       style={inputStyle}
                     >
@@ -832,36 +870,42 @@ export const RegistroFlujoModal = ({
                       <option value="si">Sí</option>
                     </select>
                     {desmontoPuertas && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <label htmlFor="door-count" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Cantidad de puertas desmontadas (1 a 4)</label>
-                        <input
-                          id="door-count"
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[1-4]"
-                          maxLength={1}
-                          placeholder="Escribe de 1 a 4"
-                          value={puertasDesmontadas || ''}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            if (value === '') {
-                              setPuertasDesmontadas(0);
-                              return;
-                            }
-                            if (/^[1-4]$/.test(value)) {
-                              setPuertasDesmontadas(Number(value));
-                            }
-                          }}
-                          aria-invalid={desmontoPuertas && !cantidadPuertasValida}
-                          style={inputStyle}
-                        />
-                        {desmontoPuertas && !cantidadPuertasValida && (
-                          <p role="alert" style={fieldErrorStyle}>Escribe un número entero de 1 a 4.</p>
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <label htmlFor="doors-old-nevecon" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Puertas que quitaste del nevecon antiguo</label>
+                          <select
+                            id="doors-old-nevecon"
+                            value={puertasNeveconAntiguo}
+                            onChange={(event) => setPuertasNeveconAntiguo(Number(event.target.value))}
+                            style={inputStyle}
+                          >
+                            {[0, 1, 2, 3, 4].map((cantidad) => (
+                              <option key={cantidad} value={cantidad}>{cantidad}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <label htmlFor="doors-new-nevecon" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Puertas que quitaste del nevecon nuevo</label>
+                          <select
+                            id="doors-new-nevecon"
+                            value={puertasNeveconNuevo}
+                            onChange={(event) => setPuertasNeveconNuevo(Number(event.target.value))}
+                            style={inputStyle}
+                          >
+                            {[0, 1, 2, 3, 4].map((cantidad) => (
+                              <option key={cantidad} value={cantidad}>{cantidad}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {!cantidadPuertasValida && (
+                          <p role="alert" style={fieldErrorStyle}>Indica al menos una puerta desmontada entre los dos equipos.</p>
                         )}
                         <p style={{ margin: 0, fontSize: 12, color: 'var(--text-slate)' }}>
-                          {puertasDesmontadas > 0 ? `${formatCOP(puertasDesmontadas * 10_000)} adicionales` : 'El adicional es de $10.000 por puerta.'}
+                          {costoPuertas > 0
+                            ? `${formatCOP(costoPuertas)} adicionales (${puertasNeveconAntiguo + puertasNeveconNuevo} ${puertasNeveconAntiguo + puertasNeveconNuevo === 1 ? 'puerta' : 'puertas'})`
+                            : 'El adicional es de $10.000 por puerta, hasta 4 por equipo.'}
                         </p>
-                      </div>
+                      </>
                     )}
                   </div>
                 </fieldset>
@@ -983,7 +1027,7 @@ export const RegistroFlujoModal = ({
               )}
 
               {/* Ticket de cuenta en tiempo real */}
-              {renderTicket(ticketItems, tipoValor + totalAdicionales)}
+              {renderTicket(ticketItems, tipoValor + totalAdicionales, valorPorDefinirAdmin)}
 
               {error && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', backgroundColor: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', fontSize: '13px', fontWeight: '500' }}>
@@ -1007,14 +1051,15 @@ export const RegistroFlujoModal = ({
 
       case 'traslado': {
         const prev = paso as Extract<typeof paso, { kind: 'traslado' }>;
-        const items = [
-          { label: prev.tipoNombre, sub: 'Servicio base', valor: prev.valorBase },
+        const items: { label: string; sub?: string; valor: number; porDefinir?: boolean }[] = [
+          { label: prev.tipoNombre, sub: 'Servicio base', valor: prev.valorBase, porDefinir: prev.valorPorDefinir },
         ];
-        if (prev.puertasDesmontadas > 0) {
+        const puertasTraslado = prev.puertasNeveconAntiguo + prev.puertasNeveconNuevo;
+        if (puertasTraslado > 0) {
           items.push({
-            label: `Desmonte de puertas (${prev.puertasDesmontadas})`,
+            label: `Desmonte de puertas (antiguo ${prev.puertasNeveconAntiguo}, nuevo ${prev.puertasNeveconNuevo})`,
             sub: '$10.000 por puerta',
-            valor: prev.puertasDesmontadas * 10_000,
+            valor: puertasTraslado * 10_000,
           });
         }
         if (prev.requiereAyudante) {
@@ -1165,7 +1210,7 @@ export const RegistroFlujoModal = ({
               </div>
 
               {/* Ticket con cálculo en tiempo real */}
-              {renderTicket(items, totalConTraslado)}
+              {renderTicket(items, totalConTraslado, prev.valorPorDefinir)}
               {quoteLoading && <p role="status" style={{ margin: 0, color: 'var(--text-slate)', fontSize: 12 }}>Calculando tarifa exacta del traslado…</p>}
 
               {error && (
@@ -1204,8 +1249,8 @@ export const RegistroFlujoModal = ({
         const fin = paso as Extract<typeof paso, { kind: 'final' }>;
         const total = fin.valorServicio + fin.trasladoValor;
         const finalItems = [
-          { label: fin.tipoNombre, sub: 'Servicio base', valor: fin.valorBase },
-          ...(fin.puertasDesmontadas > 0 ? [{ label: `Desmonte de puertas (${fin.puertasDesmontadas})`, sub: '$10.000 por puerta', valor: fin.puertasDesmontadas * 10_000 }] : []),
+          { label: fin.tipoNombre, sub: 'Servicio base', valor: fin.valorBase, porDefinir: fin.valorPorDefinir },
+          ...(fin.puertasNeveconAntiguo + fin.puertasNeveconNuevo > 0 ? [{ label: `Desmonte de puertas (antiguo ${fin.puertasNeveconAntiguo}, nuevo ${fin.puertasNeveconNuevo})`, sub: '$10.000 por puerta', valor: (fin.puertasNeveconAntiguo + fin.puertasNeveconNuevo) * 10_000 }] : []),
           ...(fin.requiereAyudante ? [{ label: 'Servicio con ayudante', sub: 'Adicional por apoyo', valor: 10_000 }] : []),
           { label: fin.trasladoNombre, sub: 'Traslado incluido', valor: fin.trasladoValor },
         ];
@@ -1227,7 +1272,7 @@ export const RegistroFlujoModal = ({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {renderTicket(finalItems, total)}
+              {renderTicket(finalItems, total, fin.valorPorDefinir)}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', color: 'var(--success-text)', fontSize: '13px', fontWeight: '500' }}>
                 <Check size={18} style={{ flexShrink: 0 }} />

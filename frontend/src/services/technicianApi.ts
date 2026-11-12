@@ -6,13 +6,14 @@ export interface DatosCobroApi {
   lugar_expedicion: string;
 }
 
-import { apiFetch, apiUpload } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 export interface ServiceApi {
   id: string;
   cuenta_cobro_id: string;
   tipo_servicio_id: string;
   tipo_servicio_nombre?: string | null;
+  requiere_valor_admin?: boolean;
   numero_orden: string;
   descripcion_especifica?: string | null;
   fotos?: string[];
@@ -28,7 +29,8 @@ export interface UpdateServicePayload {
   numero_orden?: string;
   descripcion_especifica?: string;
   fotos?: string[];
-  puertas_desmontadas?: number;
+  puertas_nevecon_antiguo?: number;
+  puertas_nevecon_nuevo?: number;
   requiere_ayudante?: boolean;
   motivo_ayudante?: string;
   destino?: string;
@@ -41,6 +43,7 @@ export interface TipoServicioApi {
   descripcion?: string | null;
   valor_estandar: number;
   activo?: boolean | null;
+  requiere_valor_admin?: boolean;
 }
 
 export interface CuentaApi {
@@ -87,7 +90,8 @@ export type CreateServicePayload = {
   fotos?: string[];
   fotos_puertas?: string[];
   fotos_ayudante?: string[];
-  puertas_desmontadas?: number;
+  puertas_nevecon_antiguo?: number;
+  puertas_nevecon_nuevo?: number;
   requiere_ayudante?: boolean;
   motivo_ayudante?: string;
 };
@@ -99,20 +103,6 @@ export type CreateTransferPayload = {
   destino: string;
   transporte: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
   valor_cobrado?: number;
-};
-
-export type ImportedServicePayload = {
-  tipo_servicio_id: string;
-  numero_orden: string;
-  valor_cobrado: number;
-  es_traslado: boolean;
-  descripcion_especifica?: string;
-  destino?: string;
-  transporte?: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA';
-  puertas_desmontadas?: number;
-  requiere_ayudante?: boolean;
-  motivo_ayudante?: string;
-  fotos?: string[];
 };
 
 export function asEstadoServicio(value: string): EstadoServicio {
@@ -141,28 +131,6 @@ export const technicianApi = {
       body: JSON.stringify(payload),
     }),
 
-
-  previewPhotoImport: (file: File) => {
-    const body = new FormData();
-    body.append('file', file);
-    return apiUpload<{
-      numero_orden: string;
-      tipo_servicio: string | null;
-      tipo_servicio_id: string | null;
-      descripcion_especifica: string;
-      valor_cobrado: number | null;
-      es_traslado: boolean;
-      destino: string | null;
-      transporte: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA' | null;
-      confianza: 'alta' | 'media' | 'baja';
-    }>('/services/my-account/photo-import/preview', body);
-  },
-
-  createImportedService: (payload: ImportedServicePayload) =>
-    apiFetch<ServiceApi>('/services/my-account/imported-service', {
-      method: 'POST',
-      body: payload,
-    }),
 
   signAccount: (id: string, firma_tecnico: string) =>
     apiFetch<{ id: string; firma_tecnico: string; fecha_firma: string }>(`/services/my-accounts/${id}/signature`, {

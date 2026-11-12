@@ -23,6 +23,7 @@ export type PendingService = {
   cuenta_cobro_id: string;
   tipo_servicio_id: string;
   tipo_servicio_nombre: string | null;
+  requiere_valor_admin?: boolean;
   numero_orden: string;
   descripcion_especifica: string | null;
   valor_cobrado: number;
@@ -45,6 +46,7 @@ export type AccountService = {
   id: string;
   tipo_servicio_id: string;
   tipo_servicio_nombre: string | null;
+  requiere_valor_admin?: boolean;
   numero_orden: string;
   descripcion_especifica: string | null;
   fotos?: string[];
@@ -233,6 +235,12 @@ export const reviewApi = {
     apiFetch<AccountService>(`${BASE}/services/${id}/type`, {
       method: 'PATCH',
       body: JSON.stringify({ tipo_servicio_id }),
+    }),
+
+  updateServiceValue: (id: string, valor_cobrado: number) =>
+    apiFetch<AccountService>(`${BASE}/services/${id}/value`, {
+      method: 'PATCH',
+      body: JSON.stringify({ valor_cobrado }),
     }),
 
   getAccounts: (params?: { mes?: number; anio?: number; estado?: EstadoServicio; usuario_id?: string }) => {

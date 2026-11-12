@@ -3,6 +3,7 @@ import type { Request as ExpressRequest } from 'express';
 import { AdminService, type EstadoServicio } from './admin.service';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { UpdateServiceTypeDto } from './dto/update-service-type.dto';
+import { UpdateServiceValueDto } from './dto/update-service-value.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -38,6 +39,17 @@ export class AdminController {
     @Body() body: UpdateServiceTypeDto,
   ) {
     return this.adminService.updateServiceType(id, body.tipo_servicio_id, req.user!.id);
+  }
+
+  @Patch('services/:id/value')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin')
+  async updateServiceValue(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: UpdateServiceValueDto,
+  ) {
+    return this.adminService.updateServiceValue(id, body.valor_cobrado, req.user!.id);
   }
 
   // ---- Cuentas de cobro radicadas ----

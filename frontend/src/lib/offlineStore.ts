@@ -19,7 +19,8 @@ export type ServiceDraft = {
   tipoId: string;
   descripcion: string;
   desmontoPuertas: boolean;
-  puertasDesmontadas: number;
+  puertasNeveconAntiguo: number;
+  puertasNeveconNuevo: number;
   requiereAyudante: boolean;
   motivoAyudante: string;
   fotosPuertas: string[];

@@ -74,28 +74,3 @@ export async function apiFetch<T>(
 
   return res.json() as Promise<T>;
 }
-
-export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
-  const headers: Record<string, string> = {};
-  const currentToken = getToken();
-  if (currentToken) headers.Authorization = `Bearer ${currentToken}`;
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const payload = (await res.json()) as { message?: string; error?: string };
-      message = payload.message ?? payload.error ?? message;
-    } catch {
-      // leave the fallback message
-    }
-    throw new Error(message);
-  }
-
-  return res.json() as Promise<T>;
-}

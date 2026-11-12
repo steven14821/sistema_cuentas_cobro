@@ -121,7 +121,8 @@ export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
   doc.text(
     `servicios prestados como técnico en E&M ELECTRONIC SOLUTIONS SAS de ${fechaConcepto}`,
     26,
-    y
+    y,
+    { maxWidth: pageW - 52 }
   );
 
   // COORDIALMENTE,

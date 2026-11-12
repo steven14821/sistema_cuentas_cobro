@@ -10,7 +10,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { ImportedServiceDto } from './dto/imported-service.dto';
 import { TransportCalculatorService, TransportType } from './transport-calculator.service';
 import { registerOrderNumber } from './order-registry';
 import {
@@ -69,6 +68,7 @@ export class ServicesService {
       cuenta_cobro_id: servicio.cuenta_cobro_id,
       tipo_servicio_id: servicio.tipo_servicio_id,
       tipo_servicio_nombre: servicio.tipos_servicio?.nombre ?? null,
+      requiere_valor_admin: servicio.tipos_servicio?.requiere_valor_admin ?? false,
       numero_orden: servicio.numero_orden,
       descripcion_especifica: servicio.descripcion_especifica,
       fotos: servicio.fotos ?? [],
@@ -140,10 +140,12 @@ export class ServicesService {
       );
     }
 
-    const puertasDesmontadas = dto.puertas_desmontadas ?? 0;
-    if (!Number.isInteger(puertasDesmontadas) || puertasDesmontadas < 0 || puertasDesmontadas > 4) {
-      throw new BadRequestException('La cantidad de puertas desmontadas debe estar entre 0 y 4.');
+    const puertasAntiguo = dto.puertas_nevecon_antiguo ?? 0;
+    const puertasNuevo = dto.puertas_nevecon_nuevo ?? 0;
+    if ([puertasAntiguo, puertasNuevo].some((cantidad) => !Number.isInteger(cantidad) || cantidad < 0 || cantidad > 4)) {
+      throw new BadRequestException('La cantidad de puertas desmontadas debe estar entre 0 y 4 por equipo.');
     }
+    const puertasDesmontadas = puertasAntiguo + puertasNuevo;
     const nombreTipoNormalizado = tipo.nombre
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -151,10 +153,11 @@ export class ServicesService {
     const esRecoleccion = /recoleccion|recogida/.test(nombreTipoNormalizado);
     const incluyeAyudante = esRecoleccion && nombreTipoNormalizado.includes('incluye ayudante');
     const requiereAyudante = (dto.requiere_ayudante ?? false) && !incluyeAyudante;
-    const esRecogidaNevecon = esRecoleccion && nombreTipoNormalizado.includes('nevecon');
-    if (puertasDesmontadas > 0 && !esRecogidaNevecon) {
+    const esNeveconManoAMano = esRecoleccion && nombreTipoNormalizado.includes('nevecon') &&
+      nombreTipoNormalizado.includes('mano a mano');
+    if (puertasDesmontadas > 0 && !esNeveconManoAMano) {
       throw new BadRequestException(
-        'El desmonte de puertas solo aplica a recogidas de nevecon.',
+        'El desmonte de puertas solo aplica a la recolección de nevecon mano a mano.',
       );
     }
     if (requiereAyudante && !esRecoleccion) {
@@ -190,7 +193,7 @@ export class ServicesService {
     const detallesRecoleccion: string[] = [];
     if (puertasDesmontadas > 0) {
       detallesRecoleccion.push(
-        `Puertas desmontadas: ${puertasDesmontadas} (fotos: ${fotosPuertas.length})`,
+        `Puertas desmontadas: nevecon antiguo ${puertasAntiguo}, nevecon nuevo ${puertasNuevo} (fotos: ${fotosPuertas.length})`,
       );
     }
     if (requiereAyudante) {
@@ -243,6 +246,7 @@ export class ServicesService {
     }
 
     const valorAdicional = puertasDesmontadas * 10_000 + (requiereAyudante ? 10_000 : 0);
+    const valorBase = tipo.requiere_valor_admin ? 0 : Number(tipo.valor_estandar);
     const servicio = await this.prisma.$transaction(async (tx) => {
       await registerOrderNumber(tx, rawDigits);
       return tx.servicios.create({
@@ -252,7 +256,7 @@ export class ServicesService {
           numero_orden: numeroOrden,
           descripcion_especifica: descripcion,
           fotos,
-          valor_cobrado: Number(tipo.valor_estandar) + valorAdicional,
+          valor_cobrado: valorBase + valorAdicional,
           estado: isCorrection ? 'Observado' : 'Pendiente',
         },
         include: { tipos_servicio: true },
@@ -260,183 +264,6 @@ export class ServicesService {
     });
 
     return this.serializeServicio(servicio);
-  }
-
-  async createImportedService(usuarioId: string, dto: ImportedServiceDto) {
-    const rawDigits = dto.numero_orden.replace(/\D/g, '');
-    if (!/^\d{5}$/.test(rawDigits)) {
-      throw new BadRequestException('El número de orden debe contener exactamente 5 dígitos.');
-    }
-
-    const tipo = await this.prisma.tipos_servicio.findUnique({
-      where: { id: dto.tipo_servicio_id },
-    });
-    if (!tipo || !tipo.activo) {
-      throw new BadRequestException('El tipo de servicio no existe o está inactivo.');
-    }
-
-    const nombreTipoNormalizado = tipo.nombre
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-    const tipoEsTraslado = nombreTipoNormalizado.includes('traslado');
-    if (dto.es_traslado !== tipoEsTraslado) {
-      throw new BadRequestException('Selecciona un tipo de servicio que corresponda a su clasificación.');
-    }
-    const esRecoleccion = /recoleccion|recogida/.test(nombreTipoNormalizado);
-    const incluyeAyudante = esRecoleccion && nombreTipoNormalizado.includes('incluye ayudante');
-    const esNevecon = esRecoleccion && nombreTipoNormalizado.includes('nevecon');
-    const puertasDesmontadas = dto.puertas_desmontadas ?? 0;
-    const requiereAyudante = (dto.requiere_ayudante ?? false) && !incluyeAyudante;
-    if (puertasDesmontadas > 0 && !esNevecon) {
-      throw new BadRequestException('El desmonte de puertas solo aplica a recogidas de nevecon.');
-    }
-    if (requiereAyudante && !esRecoleccion) {
-      throw new BadRequestException('El adicional de ayudante solo aplica a servicios de recolección.');
-    }
-    if (requiereAyudante && !dto.motivo_ayudante?.trim()) {
-      throw new BadRequestException('Describe por qué necesitaste ayudante.');
-    }
-
-    const fotos = dto.fotos ?? [];
-    if (
-      fotos.length > 10 ||
-      fotos.some((foto) =>
-        !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(foto) ||
-        foto.length > 1_400_000,
-      )
-    ) {
-      throw new BadRequestException('Las fotos deben ser imágenes JPG, PNG o WebP de máximo 1 MB cada una.');
-    }
-    if ((puertasDesmontadas > 0 || requiereAyudante) && fotos.length === 0) {
-      throw new BadRequestException('Agrega una foto de evidencia para los adicionales de recolección.');
-    }
-
-    const periodo = await this.getPeriodoVigente(usuarioId);
-    const currentAccount = await this.prisma.cuentas_cobro.findUnique({
-      where: {
-        usuario_id_mes_anio: {
-          usuario_id: usuarioId,
-          mes: periodo.mes,
-          anio: periodo.anio,
-        },
-      },
-    });
-    const isCorrection = !!currentAccount && this.isCorrectionAccount(currentAccount);
-    if (!isCorrection) await this.assertVentanaAbierta(usuarioId);
-    if (currentAccount?.radicada && !isCorrection) {
-      throw new BadRequestException('La cuenta de este período ya fue radicada y no admite cambios.');
-    }
-
-    const user = await this.prisma.usuarios.findUnique({
-      where: { id: usuarioId },
-      select: { sede: true },
-    });
-    const prefix = user?.sede?.toLowerCase().includes('cuc') ? 'CUC' : 'BUC';
-    const numeroOrden = `${dto.es_traslado ? 'T-' : ''}${prefix}-${rawDigits}`;
-    let descripcion = dto.descripcion_especifica?.trim() ?? '';
-    if (!dto.es_traslado) {
-      const adicionales: string[] = [];
-      if (puertasDesmontadas > 0) {
-        adicionales.push(`Puertas desmontadas: ${puertasDesmontadas} (fotos: ${fotos.length})`);
-      }
-      if (requiereAyudante) {
-        adicionales.push(
-          `Ayudante: sí (motivo: ${dto.motivo_ayudante!.trim()}, fotos del motivo: ${fotos.length})`,
-        );
-      }
-      if (adicionales.length) {
-        descripcion = [descripcion, `Recolección: ${adicionales.join(', ')}`]
-          .filter(Boolean)
-          .join(' | ');
-      }
-    }
-
-    const service = await this.prisma.$transaction(async (tx) => {
-      let account = await tx.cuentas_cobro.findUnique({
-        where: {
-          usuario_id_mes_anio: {
-            usuario_id: usuarioId,
-            mes: periodo.mes,
-            anio: periodo.anio,
-          },
-        },
-        include: { servicios: true },
-      });
-      const isCorrectionNow = !!account && this.isCorrectionAccount(account);
-      if (account?.radicada && !isCorrectionNow) {
-        throw new BadRequestException('La cuenta de este período ya fue radicada y no admite cambios.');
-      }
-      if (!account) {
-        account = await tx.cuentas_cobro.create({
-          data: {
-            usuario_id: usuarioId,
-            mes: periodo.mes,
-            anio: periodo.anio,
-            estado: 'Pendiente',
-            radicada: false,
-          },
-          include: { servicios: true },
-        });
-      }
-
-      const duplicate = await tx.servicios.findFirst({
-        where: { cuenta_cobro_id: account.id, numero_orden: numeroOrden },
-      });
-      if (duplicate) {
-        throw new BadRequestException(`La orden ${rawDigits} ya está registrada en esta cuenta.`);
-      }
-      if (!dto.es_traslado) {
-        await registerOrderNumber(tx, rawDigits);
-      }
-
-      let valorCobrado = dto.valor_cobrado;
-      if (dto.es_traslado) {
-        if (!dto.destino || !dto.transporte) {
-          throw new BadRequestException('Indica el destino y el medio de transporte del traslado.');
-        }
-        const { calculatedValue } = await this.calculateTransfer(
-          usuarioId,
-          {
-            tipo_servicio_id: tipo.id,
-            numero_orden: numeroOrden,
-            destino: dto.destino,
-            transporte: dto.transporte,
-            descripcion_especifica: descripcion,
-          },
-          account.servicios.map((service) => ({
-            id: service.id,
-            tipo_servicio_id: service.tipo_servicio_id,
-            valor_cobrado: Number(service.valor_cobrado),
-          })),
-        );
-        valorCobrado = calculatedValue;
-        descripcion = [
-          descripcion,
-          `Traslado: ${dto.destino}`,
-          dto.transporte === 'MOTO_PROPIA' ? 'Moto propia' : 'Vehículo empresa',
-        ].filter(Boolean).join(' | ');
-      } else {
-        valorCobrado = Number(tipo.valor_estandar) +
-          puertasDesmontadas * 10_000 +
-          (requiereAyudante ? 10_000 : 0);
-      }
-
-      return tx.servicios.create({
-        data: {
-          cuenta_cobro_id: account.id,
-          tipo_servicio_id: tipo.id,
-          numero_orden: numeroOrden,
-          descripcion_especifica: descripcion || null,
-          fotos,
-          valor_cobrado: valorCobrado,
-          estado: isCorrectionNow ? 'Observado' : 'Pendiente',
-        },
-        include: { tipos_servicio: true },
-      });
-    });
-
-    return this.serializeServicio(service);
   }
 
   private async calculateTransfer(
@@ -727,7 +554,7 @@ export class ServicesService {
         })),
       );
       valorCobrado = calculatedValue;
-    } else if (!esTraslado && (tipo || dto.puertas_desmontadas !== undefined || dto.requiere_ayudante !== undefined || dto.fotos !== undefined)) {
+    } else if (!esTraslado && (tipo || dto.puertas_nevecon_antiguo !== undefined || dto.puertas_nevecon_nuevo !== undefined || dto.requiere_ayudante !== undefined || dto.fotos !== undefined)) {
       const tipoServicio = tipo ?? await this.prisma.tipos_servicio.findUnique({
         where: { id: servicio.tipo_servicio_id },
       });
@@ -740,8 +567,11 @@ export class ServicesService {
         .toLowerCase();
       const esRecoleccion = /recoleccion|recogida/.test(nombreNormalizado);
       const incluyeAyudante = esRecoleccion && nombreNormalizado.includes('incluye ayudante');
-      const esNevecon = esRecoleccion && nombreNormalizado.includes('nevecon');
-      const puertasDesmontadas = esNevecon ? (dto.puertas_desmontadas ?? 0) : 0;
+      const esNeveconManoAMano = esRecoleccion && nombreNormalizado.includes('nevecon') &&
+        nombreNormalizado.includes('mano a mano');
+      const puertasAntiguo = esNeveconManoAMano ? (dto.puertas_nevecon_antiguo ?? 0) : 0;
+      const puertasNuevo = esNeveconManoAMano ? (dto.puertas_nevecon_nuevo ?? 0) : 0;
+      const puertasDesmontadas = puertasAntiguo + puertasNuevo;
       const requiereAyudante = esRecoleccion && !incluyeAyudante && (dto.requiere_ayudante ?? false);
       fotos = dto.fotos ?? servicio.fotos;
       if (
@@ -768,7 +598,7 @@ export class ServicesService {
         .trim();
       const detalles: string[] = [];
       if (puertasDesmontadas > 0) {
-        detalles.push(`Puertas desmontadas: ${puertasDesmontadas} (fotos: ${fotos.length})`);
+        detalles.push(`Puertas desmontadas: nevecon antiguo ${puertasAntiguo}, nevecon nuevo ${puertasNuevo} (fotos: ${fotos.length})`);
       }
       if (requiereAyudante) {
         const motivo = dto.motivo_ayudante?.trim() ??
@@ -780,7 +610,10 @@ export class ServicesService {
         descripcionBase,
         detalles.length ? `Recolección: ${detalles.join(', ')}` : null,
       ].filter(Boolean).join(' | ') || null;
-      valorCobrado = Number(tipoServicio.valor_estandar) + puertasDesmontadas * 10_000 + (requiereAyudante ? 10_000 : 0);
+      const valorBase = tipoServicio.requiere_valor_admin
+        ? (tipoServicio.id === servicio.tipo_servicio_id ? Number(servicio.valor_cobrado) : 0)
+        : Number(tipoServicio.valor_estandar);
+      valorCobrado = valorBase + puertasDesmontadas * 10_000 + (requiereAyudante ? 10_000 : 0);
     }
 
     if (esTraslado && fotos !== undefined && (
@@ -1027,6 +860,7 @@ export class ServicesService {
       descripcion: t.descripcion,
       valor_estandar: Number(t.valor_estandar),
       activo: t.activo,
+      requiere_valor_admin: t.requiere_valor_admin,
     }));
   }
 

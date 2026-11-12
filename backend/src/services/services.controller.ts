@@ -9,16 +9,11 @@ import {
   Request,
   Param,
   BadRequestException,
-  UploadedFile,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { ServicesService } from './services.service';
-import { AccountImportService, type UploadedBinaryFile } from './account-import.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { ImportedServiceDto } from './dto/imported-service.dto';
 import { SignAccountDto } from './dto/sign-account.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -26,10 +21,7 @@ import { Roles } from '../auth/guards/roles.decorator';
 
 @Controller('services')
 export class ServicesController {
-  constructor(
-    private readonly servicesService: ServicesService,
-    private readonly accountImportService: AccountImportService,
-  ) {}
+  constructor(private readonly servicesService: ServicesService) {}
 
   @Get('types')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -44,23 +36,6 @@ export class ServicesController {
   async getMyAccount(@Request() req: any) {
     return this.servicesService.getMyAccount(req.user!.id);
   }
-
-  @Post('my-account/photo-import/preview')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('Tecnico')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 1024 * 1024 } }))
-  async previewPhotoImport(@UploadedFile() file: UploadedBinaryFile) {
-    if (!file) throw new BadRequestException('Selecciona una foto del servicio.');
-    return this.accountImportService.extractPhoto(file);
-  }
-
-  @Post('my-account/imported-service')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('Tecnico')
-  async createImportedService(@Request() req: any, @Body() dto: ImportedServiceDto) {
-    return this.servicesService.createImportedService(req.user!.id, dto);
-  }
-
 
   @Get('datos-cobro')
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AdminService } from './admin.service';
 import { ApprovalEmailService } from './approval-email.service';
+import { TransportCalculatorService } from '../services/transport-calculator.service';
 
 function makePrisma() {
   return {
@@ -32,6 +33,7 @@ function makePrisma() {
     },
     servicios: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       deleteMany: vi.fn(),
@@ -51,14 +53,14 @@ describe('AdminService — deleteUser', () => {
   beforeEach(() => {
     prisma = makePrisma();
     approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
-    service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+    service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService, new TransportCalculatorService());
   });
 
   describe('AdminService — updateServiceType', () => {
     beforeEach(() => {
       prisma = makePrisma();
       approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
-      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService, new TransportCalculatorService());
     });
 
     it('cambia el tipo, aplica la nueva tarifa estándar y deja auditoría', async () => {
@@ -120,11 +122,125 @@ describe('AdminService — deleteUser', () => {
     });
   });
 
+  describe('AdminService — valor asignado por el administrador', () => {
+    const zurich = {
+      id: 'service-zurich',
+      cuenta_cobro_id: 'account-1',
+      tipo_servicio_id: 'type-zurich',
+      numero_orden: 'CUC-12345',
+      descripcion_especifica: 'Cambio de fuente de poder',
+      valor_cobrado: 0,
+      estado: 'Pendiente',
+      cuentas_cobro: { radicada: true, estado: 'Pendiente' },
+      tipos_servicio: {
+        nombre: 'ZURICH: Reparación',
+        valor_estandar: 0,
+        activo: true,
+        requiere_valor_admin: true,
+      },
+    };
+
+    beforeEach(() => {
+      prisma = makePrisma();
+      approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
+      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService, new TransportCalculatorService());
+    });
+
+    it('asigna el valor, deja auditoría y recalcula el traslado de la misma orden', async () => {
+      prisma.servicios.findUnique.mockResolvedValue(zurich);
+      prisma.servicios.update.mockResolvedValue({ ...zurich, valor_cobrado: 80_000 });
+      prisma.servicios.findFirst.mockResolvedValue({
+        id: 'transfer-1',
+        numero_orden: 'T-CUC-12345',
+        descripcion_especifica: 'Moto propia',
+        valor_cobrado: 8_000,
+        estado: 'Pendiente',
+        tipos_servicio: { nombre: 'TRASLADO CUC: Zulia' },
+      });
+      prisma.servicios.findMany.mockResolvedValue([]);
+
+      await service.updateServiceValue('service-zurich', 80_000, 'admin-1');
+
+      expect(prisma.servicios.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'service-zurich' },
+        data: expect.objectContaining({ valor_cobrado: 80_000 }),
+      }));
+      expect(prisma.servicios.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'transfer-1' },
+        data: expect.objectContaining({ valor_cobrado: 88_000 }),
+      }));
+      expect(prisma.cuentas_cobro.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: { firma_tecnico: null, fecha_firma: null },
+      }));
+      expect(prisma.auditoria_servicios.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('no toca el traslado cuando su tarifa no depende del valor del servicio', async () => {
+      prisma.servicios.findUnique.mockResolvedValue({
+        ...zurich,
+        numero_orden: 'BUC-12345',
+      });
+      prisma.servicios.update.mockResolvedValue({ ...zurich, valor_cobrado: 80_000 });
+      prisma.servicios.findFirst.mockResolvedValue({
+        id: 'transfer-1',
+        numero_orden: 'T-BUC-12345',
+        descripcion_especifica: 'Moto propia',
+        valor_cobrado: 8_000,
+        estado: 'Pendiente',
+        tipos_servicio: { nombre: 'TRASLADO: Piedecuesta' },
+      });
+      prisma.servicios.findMany.mockResolvedValue([]);
+
+      await service.updateServiceValue('service-zurich', 80_000, 'admin-1');
+
+      expect(prisma.servicios.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('rechaza un valor manual en un servicio con tarifa fija', async () => {
+      prisma.servicios.findUnique.mockResolvedValue({
+        ...zurich,
+        tipos_servicio: { ...zurich.tipos_servicio, requiere_valor_admin: false },
+      });
+
+      await expect(service.updateServiceValue('service-zurich', 80_000, 'admin-1'))
+        .rejects.toThrow('tarifa fija');
+      expect(prisma.servicios.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza valores en cero', async () => {
+      await expect(service.updateServiceValue('service-zurich', 0, 'admin-1'))
+        .rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.servicios.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('impide aprobar un servicio sin valor asignado', async () => {
+      prisma.servicios.findUnique.mockResolvedValue(zurich);
+
+      await expect(service.updateServiceStatus('service-zurich', 'Aprobado', 'admin-1'))
+        .rejects.toThrow('Asigna el valor de "ZURICH: Reparación" antes de aprobar.');
+      expect(prisma.servicios.update).not.toHaveBeenCalled();
+    });
+
+    it('impide aprobar la cuenta completa si falta un valor por asignar', async () => {
+      prisma.cuentas_cobro.findUnique.mockResolvedValue({
+        id: 'account-1',
+        radicada: true,
+        estado: 'Pendiente',
+        servicios: [zurich],
+        usuarios: { nombre_completo: 'Técnico', email: 'tecnico@example.com' },
+      });
+
+      await expect(service.updateAccountStatus('account-1', 'Aprobado', 'admin-1'))
+        .rejects.toThrow('antes de aprobar');
+      expect(prisma.servicios.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('AdminService — account access management', () => {
     beforeEach(() => {
       prisma = makePrisma();
       approvalEmail = { sendAccountApproved: vi.fn().mockResolvedValue({ status: 'sent' }) };
-      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+      service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService, new TransportCalculatorService());
     });
 
     it('creates a generated password and returns it only with the new user result', async () => {
@@ -331,7 +447,7 @@ describe('AdminService — auditoría de tarifas en el detalle de cuenta', () =>
   beforeEach(() => {
     prisma = makePrisma();
     approvalEmail = { sendAccountApproved: vi.fn() };
-    service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService);
+    service = new AdminService(prisma, approvalEmail as unknown as ApprovalEmailService, new TransportCalculatorService());
   });
 
   it('expone la auditoría por servicio y el resumen de la cuenta', async () => {

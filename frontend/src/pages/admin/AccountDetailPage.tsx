@@ -20,6 +20,7 @@ import {
   Download,
   X,
   Pencil,
+  DollarSign,
 } from 'lucide-react';
 
 interface OrdenAgrupadaAdmin {
@@ -84,6 +85,10 @@ export const AccountDetailPage = () => {
   const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
   const [savingServiceType, setSavingServiceType] = useState(false);
   const [serviceTypeError, setServiceTypeError] = useState<string | null>(null);
+  const [serviceValueTarget, setServiceValueTarget] = useState<AccountService | null>(null);
+  const [serviceValueInput, setServiceValueInput] = useState('');
+  const [savingServiceValue, setSavingServiceValue] = useState(false);
+  const [serviceValueError, setServiceValueError] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     if (!id) return;
@@ -187,6 +192,34 @@ export const AccountDetailPage = () => {
     (type) => !type.nombre.toUpperCase().startsWith('TRASLADO'),
   );
 
+  const handleOpenServiceValue = (service: AccountService) => {
+    setServiceValueTarget(service);
+    setServiceValueInput(service.valor_cobrado > 0 ? String(service.valor_cobrado) : '');
+    setServiceValueError(null);
+  };
+
+  const handleSaveServiceValue = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!serviceValueTarget) return;
+    const valor = Number(serviceValueInput);
+    if (!Number.isInteger(valor) || valor <= 0) {
+      setServiceValueError('Ingresa un valor en pesos mayor que cero.');
+      return;
+    }
+    setSavingServiceValue(true);
+    setServiceValueError(null);
+    try {
+      await reviewApi.updateServiceValue(serviceValueTarget.id, valor);
+      setServiceValueTarget(null);
+      setSelectedOrder(null);
+      await loadAccount();
+    } catch (err) {
+      setServiceValueError(err instanceof Error ? err.message : 'No se pudo asignar el valor.');
+    } finally {
+      setSavingServiceValue(false);
+    }
+  };
+
   const servicios = account?.servicios ?? [];
 
   // Agrupamos las órdenes de la misma forma que el técnico (servicio + traslado unificados)
@@ -228,6 +261,10 @@ export const AccountDetailPage = () => {
   const ordenesPendientes = ordenesAgrupadas.filter((o) => o.estado === 'Pendiente').length;
   const ordenesObservadas = ordenesAgrupadas.filter((o) => o.estado === 'Observado').length;
   const ordenesRechazadas = ordenesAgrupadas.filter((o) => o.estado === 'Rechazado').length;
+
+  const serviciosSinValorAdmin = servicios.filter(
+    (s) => s.requiere_valor_admin && Number(s.valor_cobrado) <= 0,
+  );
 
   const handleDescargarPdf = async () => {
     if (!account) return;
@@ -435,6 +472,26 @@ export const AccountDetailPage = () => {
             {' '}Los traslados se dejan para revisión manual porque su cálculo depende del viaje y de los servicios incluidos.
           </div>
 
+          {serviciosSinValorAdmin.length > 0 && (
+            <div
+              role="alert"
+              style={{
+                marginTop: 12,
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--warning-border)',
+                background: 'var(--warning-bg)',
+                color: 'var(--warning-text)',
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Falta asignar el valor de {serviciosSinValorAdmin.length} servicio(s) sin tarifa fija.</strong>{' '}
+              {serviciosSinValorAdmin.map((s) => `${s.numero_orden} · ${s.tipo_servicio_nombre}`).join('; ')}.
+              {' '}Usa <strong>Asignar valor</strong> en cada orden; no se puede aprobar hasta definirlo.
+            </div>
+          )}
+
           {/* Botones de acción masiva sobre la cuenta completa */}
           <div
             style={{
@@ -454,6 +511,10 @@ export const AccountDetailPage = () => {
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 type="button"
+                disabled={serviciosSinValorAdmin.length > 0}
+                title={serviciosSinValorAdmin.length > 0
+                  ? 'Asigna el valor de los servicios sin tarifa fija antes de aprobar.'
+                  : undefined}
                 onClick={() =>
                   handleOpenAction(
                     'account',
@@ -463,7 +524,9 @@ export const AccountDetailPage = () => {
                     `Se marcarán como aprobadas las ${ordenesAgrupadas.length} órdenes de la cuenta.`,
                   )
                 }
-                style={approveBtnStyle}
+                style={serviciosSinValorAdmin.length > 0
+                  ? { ...approveBtnStyle, opacity: 0.55, cursor: 'not-allowed' }
+                  : approveBtnStyle}
               >
                 <CheckCircle2 size={15} /> Aprobar Cuenta Completa
               </button>
@@ -539,6 +602,7 @@ export const AccountDetailPage = () => {
                   {ordenesAgrupadas.map((grupo) => {
                     const s = grupo.servicioPrincipal;
                     const hasTraslado = !!grupo.traslado;
+                    const faltaValorAdmin = !!s.requiere_valor_admin && Number(s.valor_cobrado) <= 0;
 
                     return (
                       <tr
@@ -609,10 +673,10 @@ export const AccountDetailPage = () => {
                         </td>
 
                         <td style={{ ...tdStyle, fontWeight: 700, textAlign: 'right' }}>
-                          <div>{formatCOP(grupo.totalValor)}</div>
+                          <div>{faltaValorAdmin ? 'Por definir' : formatCOP(grupo.totalValor)}</div>
                           {hasTraslado && (
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>
-                              Serv: {formatCOP(s.valor_cobrado)} + Trasl: {formatCOP(grupo.traslado!.valor_cobrado)}
+                              Serv: {faltaValorAdmin ? 'por definir' : formatCOP(s.valor_cobrado)} + Trasl: {formatCOP(grupo.traslado!.valor_cobrado)}
                             </div>
                           )}
                         </td>
@@ -654,9 +718,29 @@ export const AccountDetailPage = () => {
                               <Pencil size={13} /> Cambiar tipo
                             </button>
 
+                            {s.requiere_valor_admin && (
+                              <button
+                                type="button"
+                                title="Asignar el valor de este servicio sin tarifa fija"
+                                onClick={() => handleOpenServiceValue(s)}
+                                style={{
+                                  ...actionMiniBtn,
+                                  backgroundColor: faltaValorAdmin ? 'var(--warning-bg)' : 'var(--info-bg)',
+                                  color: faltaValorAdmin ? 'var(--warning-text)' : 'var(--info-text)',
+                                  borderColor: faltaValorAdmin ? 'var(--warning-border)' : 'var(--info-border)',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <DollarSign size={13} /> Asignar valor
+                              </button>
+                            )}
+
                             <button
                               type="button"
-                              title="Aprobar orden"
+                              title={faltaValorAdmin
+                                ? 'Asigna el valor del servicio antes de aprobar.'
+                                : 'Aprobar orden'}
+                              disabled={faltaValorAdmin}
                               onClick={() =>
                                 handleOpenAction(
                                   'service',
@@ -673,6 +757,7 @@ export const AccountDetailPage = () => {
                                 color: 'var(--success-text)',
                                 borderColor: 'var(--success-border)',
                                 fontWeight: grupo.estado === 'Aprobado' ? 700 : 500,
+                                ...(faltaValorAdmin ? { opacity: 0.5, cursor: 'not-allowed' } : null),
                               }}
                             >
                               <CheckCircle2 size={13} /> Aprobar
@@ -737,6 +822,7 @@ export const AccountDetailPage = () => {
               {ordenesAgrupadas.map((grupo) => {
                 const s = grupo.servicioPrincipal;
                 const hasTraslado = !!grupo.traslado;
+                const faltaValorAdmin = !!s.requiere_valor_admin && Number(s.valor_cobrado) <= 0;
                 const statusColor = grupo.estado === 'Aprobado'
                   ? 'var(--success-text)'
                   : grupo.estado === 'Observado'
@@ -773,11 +859,11 @@ export const AccountDetailPage = () => {
 
                     <div className="admin-service-card-total">
                       <span>{hasTraslado ? 'Total con traslado' : 'Valor del servicio'}</span>
-                      <strong>{formatCOP(grupo.totalValor)}</strong>
+                      <strong>{faltaValorAdmin ? 'Por definir' : formatCOP(grupo.totalValor)}</strong>
                     </div>
                     {hasTraslado && (
                       <div className="admin-service-card-breakdown">
-                        Servicio {formatCOP(s.valor_cobrado)} <span aria-hidden="true">·</span> Traslado {formatCOP(grupo.traslado!.valor_cobrado)}
+                        Servicio {faltaValorAdmin ? 'por definir' : formatCOP(s.valor_cobrado)} <span aria-hidden="true">·</span> Traslado {formatCOP(grupo.traslado!.valor_cobrado)}
                       </div>
                     )}
 
@@ -796,9 +882,20 @@ export const AccountDetailPage = () => {
                       >
                         <Pencil size={15} /> Cambiar tipo
                       </button>
+                      {s.requiere_valor_admin && (
+                        <button
+                          type="button"
+                          className="admin-service-action assign-value"
+                          onClick={() => handleOpenServiceValue(s)}
+                        >
+                          <DollarSign size={15} /> Asignar valor
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="admin-service-action approve"
+                        disabled={faltaValorAdmin}
+                        title={faltaValorAdmin ? 'Asigna el valor del servicio antes de aprobar.' : undefined}
                         style={grupo.estado === 'Aprobado' ? { color: statusColor, backgroundColor: 'var(--success-bg)', borderColor: 'var(--success-border)' } : undefined}
                         onClick={() => handleOpenAction(
                           'service',
@@ -940,8 +1037,25 @@ export const AccountDetailPage = () => {
                   {selectedOrder.servicioPrincipal.tipo_servicio_nombre ?? '—'}
                 </h4>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--ink)', marginBottom: '12px' }}>
-                  {formatCOP(selectedOrder.servicioPrincipal.valor_cobrado)}
+                  {selectedOrder.servicioPrincipal.requiere_valor_admin && selectedOrder.servicioPrincipal.valor_cobrado <= 0
+                    ? 'Por definir'
+                    : formatCOP(selectedOrder.servicioPrincipal.valor_cobrado)}
                 </div>
+
+                {selectedOrder.servicioPrincipal.requiere_valor_admin && (
+                  <div className="service-type-price-note" style={{ marginBottom: 12 }}>
+                    Este servicio no tiene tarifa fija: el valor lo asignas tú.
+                    {selectedOrder.traslado && ' Al guardarlo se recalcula el traslado de la misma orden.'}
+                    <button
+                      type="button"
+                      className="admin-service-action assign-value"
+                      style={{ marginTop: 8, width: '100%' }}
+                      onClick={() => handleOpenServiceValue(selectedOrder.servicioPrincipal)}
+                    >
+                      <DollarSign size={15} /> Asignar valor
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
@@ -1029,7 +1143,11 @@ export const AccountDetailPage = () => {
               {/* Total Orden */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--surface-3)', borderRadius: '12px', marginBottom: '20px' }}>
                 <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>Total Cobrado por esta Orden:</span>
-                <span style={{ fontWeight: 800, fontSize: '18px', color: 'var(--blue)' }}>{formatCOP(selectedOrder.totalValor)}</span>
+                <span style={{ fontWeight: 800, fontSize: '18px', color: 'var(--blue)' }}>
+                  {selectedOrder.servicioPrincipal.requiere_valor_admin && selectedOrder.servicioPrincipal.valor_cobrado <= 0
+                    ? 'Por definir'
+                    : formatCOP(selectedOrder.totalValor)}
+                </span>
               </div>
 
               {/* Botón Cerrar */}
@@ -1089,15 +1207,24 @@ export const AccountDetailPage = () => {
                 <option value="" disabled>{loadingServiceTypes ? 'Cargando tipos…' : 'Selecciona un tipo de servicio'}</option>
                 {availableServiceTypes.map((type) => (
                   <option key={type.id} value={type.id}>
-                    {type.nombre} — {formatCOP(Number(type.valor_estandar))}
+                    {type.nombre} — {type.requiere_valor_admin ? 'valor definido por el admin' : formatCOP(Number(type.valor_estandar))}
                   </option>
                 ))}
               </select>
               {selectedTypeId !== serviceTypeTarget.tipo_servicio_id && (
                 <div className="service-type-price-note">
-                  El valor cobrado cambiará de <strong>{formatCOP(serviceTypeTarget.valor_cobrado)}</strong> a{' '}
-                  <strong>{formatCOP(Number(availableServiceTypes.find((type) => type.id === selectedTypeId)?.valor_estandar ?? 0))}</strong>,
-                  según la tarifa estándar del nuevo tipo.
+                  {availableServiceTypes.find((type) => type.id === selectedTypeId)?.requiere_valor_admin ? (
+                    <>
+                      El nuevo tipo no tiene tarifa fija: el valor quedará en <strong>$0</strong> y deberás asignarlo
+                      con <strong>Asignar valor</strong> antes de aprobar.
+                    </>
+                  ) : (
+                    <>
+                      El valor cobrado cambiará de <strong>{formatCOP(serviceTypeTarget.valor_cobrado)}</strong> a{' '}
+                      <strong>{formatCOP(Number(availableServiceTypes.find((type) => type.id === selectedTypeId)?.valor_estandar ?? 0))}</strong>,
+                      según la tarifa estándar del nuevo tipo.
+                    </>
+                  )}
                 </div>
               )}
               {serviceTypeError && <p className="service-type-error" role="alert">{serviceTypeError}</p>}
@@ -1108,6 +1235,50 @@ export const AccountDetailPage = () => {
                   disabled={loadingServiceTypes || savingServiceType || !selectedTypeId || selectedTypeId === serviceTypeTarget.tipo_servicio_id}
                 >
                   {savingServiceType ? 'Guardando…' : 'Cambiar tipo y tarifa'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {serviceValueTarget && (
+          <div className="service-type-backdrop">
+            <form className="service-type-modal" onSubmit={handleSaveServiceValue}>
+              <div className="service-type-heading">
+                <div>
+                  <p>ORDEN {serviceValueTarget.numero_orden}</p>
+                  <h2>Asignar valor del servicio</h2>
+                </div>
+                <button type="button" onClick={() => setServiceValueTarget(null)} aria-label="Cerrar">×</button>
+              </div>
+              <p className="service-type-current">{serviceValueTarget.tipo_servicio_nombre ?? 'Tipo no disponible'}</p>
+              {serviceValueTarget.descripcion_especifica && (
+                <p className="service-type-current">{serviceValueTarget.descripcion_especifica}</p>
+              )}
+              <label className="service-type-label" htmlFor="admin-service-value-input">Valor a cobrar (COP)</label>
+              <input
+                id="admin-service-value-input"
+                type="number"
+                min={1}
+                max={9999999999}
+                step={1}
+                inputMode="numeric"
+                value={serviceValueInput}
+                onChange={(event) => setServiceValueInput(event.target.value)}
+                placeholder="Ej: 120000"
+                disabled={savingServiceValue}
+                required
+              />
+              <div className="service-type-price-note">
+                Este tipo de servicio no tiene tarifa fija. El valor es obligatorio antes de aprobar
+                {account.radicada ? '' : ' y solo puede asignarse cuando la cuenta esté radicada'}.
+                Si la orden tiene traslado, su valor se recalcula automáticamente. El técnico deberá volver a firmar.
+              </div>
+              {serviceValueError && <p className="service-type-error" role="alert">{serviceValueError}</p>}
+              <div className="service-type-actions">
+                <button type="button" onClick={() => setServiceValueTarget(null)} disabled={savingServiceValue}>Cancelar</button>
+                <button type="submit" disabled={savingServiceValue || !serviceValueInput}>
+                  {savingServiceValue ? 'Guardando…' : 'Guardar valor'}
                 </button>
               </div>
             </form>

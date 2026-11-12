@@ -9,8 +9,12 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalEmailService, type ApprovalEmailResult } from './approval-email.service';
 import { auditServiceTariff, summarizeTariffAudits } from './account-audit';
+import { TransportCalculatorService, TransportType } from '../services/transport-calculator.service';
 import { parseColombiaEndOfDay } from '../services/period.util';
 import * as bcrypt from 'bcrypt';
+
+const normalize = (value: string) =>
+  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 export type EstadoServicio = 'Pendiente' | 'Aprobado' | 'Observado' | 'Rechazado';
 type FiltroCuentas = {
@@ -27,6 +31,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private approvalEmail: ApprovalEmailService,
+    private transportCalculator: TransportCalculatorService,
   ) {}
 
   // ---- Serialización ----
@@ -37,6 +42,7 @@ export class AdminService {
       cuenta_cobro_id: servicio.cuenta_cobro_id,
       tipo_servicio_id: servicio.tipo_servicio_id,
       tipo_servicio_nombre: servicio.tipos_servicio?.nombre ?? null,
+      requiere_valor_admin: servicio.tipos_servicio?.requiere_valor_admin ?? false,
       numero_orden: servicio.numero_orden,
       descripcion_especifica: servicio.descripcion_especifica,
       ...(includePhotos ? { fotos: servicio.fotos ?? [] } : {}),
@@ -52,6 +58,7 @@ export class AdminService {
           ? Number(servicio.tipos_servicio.valor_estandar)
           : null,
         tipo_servicio_activo: servicio.tipos_servicio?.activo ?? null,
+        requiere_valor_admin: servicio.tipos_servicio?.requiere_valor_admin ?? false,
       }),
       auditoria: (servicio.auditoria_servicios ?? []).map((a: any) => ({
         id: a.id,
@@ -136,6 +143,7 @@ export class AdminService {
     const servicio = await this.prisma.servicios.findUnique({
       where: { id: servicioId },
       include: {
+        tipos_servicio: true,
         cuentas_cobro: {
           include: { usuarios: { select: { nombre_completo: true, email: true } } },
         },
@@ -144,6 +152,9 @@ export class AdminService {
 
     if (!servicio) {
       throw new NotFoundException('Servicio no encontrado');
+    }
+    if (status === 'Aprobado') {
+      this.assertValorAsignado(servicio);
     }
 
     await this.prisma.auditoria_servicios.create({
@@ -173,6 +184,121 @@ export class AdminService {
     };
   }
 
+  private assertValorAsignado(servicio: any) {
+    if (servicio.tipos_servicio?.requiere_valor_admin && Number(servicio.valor_cobrado) <= 0) {
+      throw new BadRequestException(
+        `Asigna el valor de "${servicio.tipos_servicio.nombre}" antes de aprobar.`,
+      );
+    }
+  }
+
+  async updateServiceValue(servicioId: string, valorCobrado: number, adminId: string) {
+    if (!Number.isFinite(valorCobrado) || valorCobrado <= 0 || valorCobrado > 9_999_999_999) {
+      throw new BadRequestException('Asigna un valor mayor que cero.');
+    }
+
+    return this.prisma.$transaction(async (tx: any) => {
+      const servicio = await tx.servicios.findUnique({
+        where: { id: servicioId },
+        include: { tipos_servicio: true, cuentas_cobro: true },
+      });
+      if (!servicio) {
+        throw new NotFoundException('Servicio no encontrado.');
+      }
+      if (!servicio.tipos_servicio?.requiere_valor_admin) {
+        throw new BadRequestException('Este servicio tiene tarifa fija y no admite un valor manual.');
+      }
+      if (!servicio.cuentas_cobro?.radicada) {
+        throw new BadRequestException('Solo se puede asignar el valor a servicios de una cuenta radicada.');
+      }
+      if (servicio.cuentas_cobro.estado === 'Aprobado') {
+        throw new BadRequestException('La cuenta ya está aprobada; devuélvela a revisión para cambiar el valor.');
+      }
+
+      const valorAnterior = Number(servicio.valor_cobrado);
+      const updated = await tx.servicios.update({
+        where: { id: servicioId },
+        data: { valor_cobrado: valorCobrado, updated_at: new Date() },
+        include: { tipos_servicio: true },
+      });
+
+      await tx.auditoria_servicios.create({
+        data: {
+          servicio_id: servicioId,
+          usuario_admin_id: adminId,
+          estado_anterior: servicio.estado,
+          estado_nuevo: servicio.estado,
+          observacion: `Valor asignado por el administrador: de ${valorAnterior} a ${valorCobrado}.`,
+          fecha_accion: new Date(),
+        },
+      });
+      await tx.cuentas_cobro.update({
+        where: { id: servicio.cuenta_cobro_id },
+        data: { firma_tecnico: null, fecha_firma: null },
+      });
+
+      await this.revalueLinkedTransfer(tx, servicio, valorAnterior, valorCobrado, adminId);
+
+      return this.serializeServicio(updated);
+    });
+  }
+
+  // El traslado de la misma orden se cotizó con el valor anterior del servicio.
+  private async revalueLinkedTransfer(
+    tx: any,
+    servicio: any,
+    valorAnterior: number,
+    valorNuevo: number,
+    adminId: string,
+  ) {
+    const traslado = await tx.servicios.findFirst({
+      where: {
+        cuenta_cobro_id: servicio.cuenta_cobro_id,
+        numero_orden: `T-${servicio.numero_orden}`,
+      },
+      include: { tipos_servicio: true },
+    });
+    if (!traslado) return;
+
+    const esMoto = !normalize(traslado.descripcion_especifica ?? '').includes('vehiculo empresa');
+    const destinoNombre = (traslado.tipos_servicio?.nombre ?? '').replace(/^TRASLADO( CUC)?:\s*/i, '');
+    const destino = esMoto
+      ? normalize(destinoNombre).toUpperCase().replace(/[\s-]+/g, '_')
+      : destinoNombre.toLowerCase();
+    const otros = await tx.servicios.findMany({
+      where: {
+        cuenta_cobro_id: servicio.cuenta_cobro_id,
+        id: { notIn: [servicio.id, traslado.id] },
+      },
+      select: { valor_cobrado: true },
+    });
+    const currentServices = otros.map((item: { valor_cobrado: unknown }) => ({
+      valor_cobrado: Number(item.valor_cobrado),
+    }));
+    const transportType = esMoto ? TransportType.MOTO : TransportType.VEHICLE;
+    const delta =
+      this.transportCalculator.calculateTransferValue(transportType, destino, currentServices, valorNuevo) -
+      this.transportCalculator.calculateTransferValue(transportType, destino, currentServices, valorAnterior);
+    if (delta === 0) return;
+
+    const valorAnteriorTraslado = Number(traslado.valor_cobrado);
+    const valorTraslado = valorAnteriorTraslado + delta;
+    await tx.servicios.update({
+      where: { id: traslado.id },
+      data: { valor_cobrado: valorTraslado, updated_at: new Date() },
+    });
+    await tx.auditoria_servicios.create({
+      data: {
+        servicio_id: traslado.id,
+        usuario_admin_id: adminId,
+        estado_anterior: traslado.estado,
+        estado_nuevo: traslado.estado,
+        observacion: `Traslado recalculado por el nuevo valor del servicio: de ${valorAnteriorTraslado} a ${valorTraslado}.`,
+        fecha_accion: new Date(),
+      },
+    });
+  }
+
   async updateServiceType(servicioId: string, tipoServicioId: string, adminId: string) {
     return this.prisma.$transaction(async (tx: any) => {
       const servicio = await tx.servicios.findUnique({
@@ -197,7 +323,7 @@ export class AdminService {
       }
 
       const valorAnterior = Number(servicio.valor_cobrado);
-      const valorNuevo = Number(nuevoTipo.valor_estandar);
+      const valorNuevo = nuevoTipo.requiere_valor_admin ? 0 : Number(nuevoTipo.valor_estandar);
       const updated = await tx.servicios.update({
         where: { id: servicioId },
         data: {
@@ -327,7 +453,7 @@ export class AdminService {
     const cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: { id: cuentaId },
       include: {
-        servicios: true,
+        servicios: { include: { tipos_servicio: true } },
         usuarios: { select: { nombre_completo: true, email: true } },
       },
     });
@@ -337,6 +463,11 @@ export class AdminService {
     }
     if (!cuenta.radicada) {
       throw new BadRequestException('La cuenta aún no ha sido radicada.');
+    }
+    if (status === 'Aprobado') {
+      for (const servicio of cuenta.servicios) {
+        this.assertValorAsignado(servicio);
+      }
     }
 
     await this.prisma.$transaction(async (tx: any) => {

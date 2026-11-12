@@ -17,19 +17,44 @@ describe('account tariff audit', () => {
     });
   });
 
-  it('includes documented collection extras in the expected amount', () => {
+  it('includes the doors of both nevecon units and the helper in the expected amount', () => {
     const result = auditServiceTariff({
       numero_orden: 'BUC-12345',
-      descripcion_especifica: 'Recolección: Puertas desmontadas: 2, Ayudante: sí (motivo: acceso, fotos del motivo: 1)',
+      descripcion_especifica: 'Recolección: Puertas desmontadas: nevecon antiguo 2, nevecon nuevo 1 (fotos: 2), Ayudante: sí (motivo: acceso, fotos del motivo: 1)',
       valor_cobrado: 80_000,
-      valor_estandar: 50_000,
-      tipo_servicio_nombre: 'Recolección Nevecon',
+      valor_estandar: 40_000,
+      tipo_servicio_nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
     });
 
     expect(result).toMatchObject({
       status: 'match',
       expected: 80_000,
     });
+    expect(result.explanation).toContain('2 del nevecon antiguo y 1 del nuevo');
+  });
+
+  it('still audits orders recorded with a single door total', () => {
+    const result = auditServiceTariff({
+      numero_orden: 'BUC-12345',
+      descripcion_especifica: 'Recolección: Puertas desmontadas: 2 (fotos: 1)',
+      valor_cobrado: 60_000,
+      valor_estandar: 40_000,
+      tipo_servicio_nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
+    });
+
+    expect(result).toMatchObject({ status: 'match', expected: 60_000 });
+  });
+
+  it('does not accept door extras on a nevecon exchange', () => {
+    const result = auditServiceTariff({
+      numero_orden: 'BUC-12345',
+      descripcion_especifica: 'Recolección: Puertas desmontadas: nevecon antiguo 1, nevecon nuevo 1 (fotos: 1)',
+      valor_cobrado: 50_000,
+      valor_estandar: 30_000,
+      tipo_servicio_nombre: 'SAMSUNG: Recolección Nevecon cambio (incluye ayudante)',
+    });
+
+    expect(result.status).toBe('manual_review');
   });
 
   it('reports the amount difference when a service does not match the standard', () => {

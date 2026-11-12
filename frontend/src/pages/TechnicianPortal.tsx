@@ -18,7 +18,7 @@ import {
   isVentanaAbierta,
   nombreMes,
 } from '../lib/period';
-import { AlertTriangle, Camera, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
 import {
   compressPhoto,
   lugaresBucaramanga,
@@ -34,7 +34,6 @@ import {
   QueuedOfflineError,
   type PendingOperation,
 } from '../lib/offlineStore';
-import { PhotoAccountImport } from './technician/PhotoAccountImport';
 
 // Función para extraer únicamente el número de orden limpio para el técnico
 export function getNumeroOrdenLimpio(numeroOrden: string): string {
@@ -44,11 +43,13 @@ export function getNumeroOrdenLimpio(numeroOrden: string): string {
 function getCorrectionDetails(service: ServiceApi) {
   const description = service.descripcion_especifica ?? '';
   const collectionDetails = description.match(/(?:\s*\|\s*)?Recolección:\s*(.*)$/i)?.[1] ?? '';
-  const doors = collectionDetails.match(/Puertas desmontadas:\s*(\d+)/i);
+  const doors = collectionDetails.match(/Puertas desmontadas:\s*nevecon antiguo (\d+), nevecon nuevo (\d+)/i);
+  const legacyDoors = doors ? null : collectionDetails.match(/Puertas desmontadas:\s*(\d+)/i);
   const helper = collectionDetails.match(/Ayudante:\s*sí\s*\(motivo:\s*(.+?),\s*fotos del motivo:/i);
   return {
     description: description.replace(/\s*\|\s*Recolección:.*$/i, '').trim(),
-    doors: Number(doors?.[1] ?? 0),
+    doorsOld: Number(doors?.[1] ?? legacyDoors?.[1] ?? 0),
+    doorsNew: Number(doors?.[2] ?? 0),
     helper: !!helper,
     helperReason: helper?.[1] ?? '',
   };
@@ -101,7 +102,6 @@ export const TechnicianPortal = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showPhotoImport, setShowPhotoImport] = useState(false);
   const [radicando, setRadicando] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([]);
@@ -112,7 +112,8 @@ export const TechnicianPortal = () => {
   const [correctionDescription, setCorrectionDescription] = useState('');
   const [correctionTypeId, setCorrectionTypeId] = useState('');
   const [correctionPhotos, setCorrectionPhotos] = useState<string[]>([]);
-  const [correctionDoors, setCorrectionDoors] = useState(0);
+  const [correctionDoorsOld, setCorrectionDoorsOld] = useState(0);
+  const [correctionDoorsNew, setCorrectionDoorsNew] = useState(0);
   const [correctionHelper, setCorrectionHelper] = useState(false);
   const [correctionHelperReason, setCorrectionHelperReason] = useState('');
   const [correctionDestination, setCorrectionDestination] = useState('');
@@ -226,8 +227,8 @@ export const TechnicianPortal = () => {
             const payload = operation.servicePayload;
             const order = getNumeroOrdenLimpio(payload.numero_orden);
             const details: string[] = [];
-            if (payload.puertas_desmontadas) {
-              details.push(`Puertas desmontadas: ${payload.puertas_desmontadas} (fotos: ${payload.fotos_puertas?.length ?? 0})`);
+            if (payload.puertas_nevecon_antiguo || payload.puertas_nevecon_nuevo) {
+              details.push(`Puertas desmontadas: nevecon antiguo ${payload.puertas_nevecon_antiguo ?? 0}, nevecon nuevo ${payload.puertas_nevecon_nuevo ?? 0} (fotos: ${payload.fotos_puertas?.length ?? 0})`);
             }
             if (payload.requiere_ayudante) {
               details.push(`Ayudante: sí (motivo: ${payload.motivo_ayudante?.trim()}, fotos del motivo: ${payload.fotos_ayudante?.length ?? 0})`);
@@ -442,7 +443,8 @@ export const TechnicianPortal = () => {
   const tipoCorreccion = tipos.find((tipo) => tipo.id === correctionTypeId);
   const nombreTipoCorreccion = normalizeText(tipoCorreccion?.nombre ?? '');
   const correccionEsTraslado = !!editingService?.numero_orden.startsWith('T-');
-  const correccionEsNevecon = /recoleccion|recogida/.test(nombreTipoCorreccion) && nombreTipoCorreccion.includes('nevecon');
+  const correccionEsNevecon = /recoleccion|recogida/.test(nombreTipoCorreccion) &&
+    nombreTipoCorreccion.includes('nevecon') && nombreTipoCorreccion.includes('mano a mano');
   const correccionEsAyudanteOpcional =
     /recoleccion|recogida/.test(nombreTipoCorreccion) &&
     !nombreTipoCorreccion.includes('incluye ayudante');
@@ -648,7 +650,8 @@ export const TechnicianPortal = () => {
     setCorrectionDescription(details.description);
     setCorrectionTypeId(service.tipo_servicio_id);
     setCorrectionPhotos(service.fotos ?? []);
-    setCorrectionDoors(details.doors);
+    setCorrectionDoorsOld(details.doorsOld);
+    setCorrectionDoorsNew(details.doorsNew);
     setCorrectionHelper(details.helper);
     setCorrectionHelperReason(details.helperReason);
     const place = lugaresCorreccion.find((item) =>
@@ -694,7 +697,7 @@ export const TechnicianPortal = () => {
         if (correctionHelper && !correctionHelperReason.trim()) {
           throw new Error('Describe por qué necesitaste ayudante.');
         }
-        if (correctionDoors > 0 && correctionPhotos.length === 0) {
+        if (correctionDoorsOld + correctionDoorsNew > 0 && correctionPhotos.length === 0) {
           throw new Error('Agrega al menos una foto del desmonte de puertas.');
         }
         if (correctionHelper && correctionPhotos.length === 0) {
@@ -705,7 +708,8 @@ export const TechnicianPortal = () => {
           numero_orden: order,
           descripcion_especifica: correctionDescription.trim(),
           fotos: correctionPhotos,
-          puertas_desmontadas: correccionEsNevecon ? correctionDoors : 0,
+          puertas_nevecon_antiguo: correccionEsNevecon ? correctionDoorsOld : 0,
+          puertas_nevecon_nuevo: correccionEsNevecon ? correctionDoorsNew : 0,
           requiere_ayudante: correccionEsAyudanteOpcional && correctionHelper,
           ...(correctionHelper ? { motivo_ayudante: correctionHelperReason.trim() } : {}),
         });
@@ -788,26 +792,6 @@ export const TechnicianPortal = () => {
               >
                 <Plus size={18} />
                 {enCorreccion ? 'Agregar orden' : 'Agregar Servicio'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPhotoImport(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: 'var(--surface)',
-                  color: 'var(--blue)',
-                  border: '1px solid var(--blue-border)',
-                  padding: '12px 16px',
-                  borderRadius: '14px',
-                  fontSize: '14px',
-                  fontWeight: '650',
-                  cursor: 'pointer',
-                }}
-              >
-                <Camera size={17} />
-                Crear desde fotos
               </button>
             </div>
           ) : (
@@ -1003,7 +987,9 @@ export const TechnicianPortal = () => {
                           )}
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '15px', fontWeight: '700', textAlign: 'right', color: 'var(--ink)' }}>
-                          {formatCOP(g.totalValor)}
+                          {g.servicioPrincipal.requiere_valor_admin && g.servicioPrincipal.valor_cobrado <= 0
+                            ? 'Por definir'
+                            : formatCOP(g.totalValor)}
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '14px', textAlign: 'right' }}>
                           {puedeEditar && (
@@ -1049,7 +1035,11 @@ export const TechnicianPortal = () => {
                   <article key={g.numeroOrden} className="order-card">
                     <div className="order-card-heading">
                       <strong>Orden {g.numeroOrden}</strong>
-                      <strong>{formatCOP(g.totalValor)}</strong>
+                      <strong>
+                        {g.servicioPrincipal.requiere_valor_admin && g.servicioPrincipal.valor_cobrado <= 0
+                          ? 'Por definir'
+                          : formatCOP(g.totalValor)}
+                      </strong>
                     </div>
                     <div className="order-card-type">{g.servicioPrincipal.tipo_servicio_nombre ?? 'Servicio Técnico'}</div>
                     {g.traslado && <div className="order-card-transfer"><Truck size={14} /> {g.traslado.descripcion_especifica ?? 'Traslado incluido'}</div>}
@@ -1225,16 +1215,6 @@ export const TechnicianPortal = () => {
             }}
           />
         )}
-        {showPhotoImport && (
-          <PhotoAccountImport
-            types={tipos}
-            sede={user?.sede}
-            onClose={() => setShowPhotoImport(false)}
-            onSaved={async () => {
-              await Promise.all([loadAccount(), loadHistory()]);
-            }}
-          />
-        )}
         {editingService && (
           <div className="correction-backdrop">
             <form className="correction-modal" onSubmit={handleSaveCorrection}>
@@ -1280,7 +1260,8 @@ export const TechnicianPortal = () => {
                     Tipo de servicio
                     <select value={correctionTypeId} onChange={(event) => {
                       setCorrectionTypeId(event.target.value);
-                      setCorrectionDoors(0);
+                      setCorrectionDoorsOld(0);
+                      setCorrectionDoorsNew(0);
                       setCorrectionHelper(false);
                       setCorrectionHelperReason('');
                     }} required>
@@ -1295,13 +1276,22 @@ export const TechnicianPortal = () => {
                     <textarea value={correctionDescription} onChange={(event) => setCorrectionDescription(event.target.value)} maxLength={2000} rows={4} required />
                   </label>
                   {correccionEsNevecon && (
-                    <label>
-                      Puertas desmontadas
-                      <select value={correctionDoors} onChange={(event) => setCorrectionDoors(Number(event.target.value))}>
-                        <option value={0}>Ninguna</option>
-                        {[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count}</option>)}
-                      </select>
-                    </label>
+                    <>
+                      <label>
+                        Puertas del nevecon antiguo
+                        <select value={correctionDoorsOld} onChange={(event) => setCorrectionDoorsOld(Number(event.target.value))}>
+                          <option value={0}>Ninguna</option>
+                          {[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count}</option>)}
+                        </select>
+                      </label>
+                      <label>
+                        Puertas del nevecon nuevo
+                        <select value={correctionDoorsNew} onChange={(event) => setCorrectionDoorsNew(Number(event.target.value))}>
+                          <option value={0}>Ninguna</option>
+                          {[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count}</option>)}
+                        </select>
+                      </label>
+                    </>
                   )}
                   {correccionEsAyudanteOpcional && (
                     <>
