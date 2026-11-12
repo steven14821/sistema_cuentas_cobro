@@ -2,12 +2,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { nombreMes } from './period';
 import { numeroALetras } from './numeroALetras';
+import { POR_DEFINIR } from './valorAdmin';
 
 export interface ServicioPdf {
   orden: string;
   tipo: string;
   descripcion: string;
   valor: number;
+  porDefinir?: boolean;
 }
 
 export interface DatosCobroPdf {
@@ -25,6 +27,7 @@ export interface CuentaPdf {
   servicios: ServicioPdf[];
   estado: string;
   total?: number;
+  totalPorDefinir?: boolean;
   serviciosCount?: number;
   firmaTecnico?: string | null;
   fechaFirma?: string | null;
@@ -94,12 +97,19 @@ export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
 
   y += 9;
   doc.setFontSize(12);
-  doc.text(formatMonto(total), centerX, y, { align: 'center' });
+  doc.text(cuenta.totalPorDefinir ? POR_DEFINIR : formatMonto(total), centerX, y, { align: 'center' });
 
   y += 6.5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10.5);
-  doc.text(numeroALetras(total), centerX, y, { align: 'center' });
+  doc.text(
+    cuenta.totalPorDefinir
+      ? '(el administrador asigna el valor antes de aprobar)'
+      : numeroALetras(total),
+    centerX,
+    y,
+    { align: 'center' }
+  );
 
   y += 11;
   doc.text(`por favor consignar a la cuenta de ahorros ${bancoNombre}:`, centerX, y, { align: 'center' });
@@ -167,7 +177,7 @@ export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
     { content: s.orden },
     { content: s.tipo || '—' },
     { content: s.descripcion || '—' },
-    { content: formatMonto(s.valor), styles: { halign: 'right' as const } },
+    { content: s.porDefinir ? POR_DEFINIR : formatMonto(s.valor), styles: { halign: 'right' as const } },
   ]);
 
   // Fila de Total
@@ -175,7 +185,7 @@ export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
     { content: '' },
     { content: '' },
     { content: 'total', styles: { halign: 'right' as const } },
-    { content: formatMonto(total), styles: { halign: 'right' as const } },
+    { content: cuenta.totalPorDefinir ? POR_DEFINIR : formatMonto(total), styles: { halign: 'right' as const } },
   ]);
 
   autoTable(doc, {

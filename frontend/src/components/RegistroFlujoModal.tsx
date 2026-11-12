@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { technicianApi, type ServiceApi } from '../services/technicianApi';
 import { formatCOP } from '../lib/period';
+import { POR_DEFINIR } from '../lib/valorAdmin';
 import { AlertCircle, Check, Receipt, ScanLine, Truck, User } from 'lucide-react';
 import { clearServiceDraft, getServiceDraft, QueuedOfflineError, saveServiceDraft } from '../lib/offlineStore';
 
@@ -640,7 +641,7 @@ export const RegistroFlujoModal = ({
                 {it.sub && <div style={{ fontSize: '12px', color: 'var(--text-slate)', fontWeight: 600 }}>{it.sub}</div>}
               </div>
               <span style={{ fontWeight: '800', color: 'var(--blue-solid)', whiteSpace: 'nowrap' }}>
-                {it.porDefinir ? 'Por definir' : formatCOP(it.valor)}
+                {it.porDefinir ? POR_DEFINIR : formatCOP(it.valor)}
               </span>
             </div>
           ))}
@@ -649,7 +650,7 @@ export const RegistroFlujoModal = ({
         <div style={ticketTotalStyle}>
           <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--ink)' }}>Subtotal de la orden</span>
           <span style={{ fontWeight: '800', fontSize: '18px', color: 'var(--blue)' }}>
-            {totalPorDefinir ? 'Por definir' : formatCOP(total)}
+            {totalPorDefinir ? POR_DEFINIR : formatCOP(total)}
           </span>
         </div>
         {totalPorDefinir && (
@@ -1069,7 +1070,7 @@ export const RegistroFlujoModal = ({
             valor: 10_000,
           });
         }
-        if (lugarSeleccionado) {
+        if (lugarSeleccionado && transferQuote !== null) {
           items.push({
             label: `Traslado a ${lugarSeleccionado.nombre}`,
             sub: tipoVehiculoLabel[transportType],

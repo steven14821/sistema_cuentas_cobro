@@ -12,12 +12,15 @@ import {
 } from '../services/technicianApi';
 import { EstadoBadge, estadoBadgeStyle } from '../components/EstadoBadge';
 import {
-  formatCOP,
   getColombiaToday,
   getPeriodoARadicar,
   isVentanaAbierta,
   nombreMes,
 } from '../lib/period';
+import {
+  servicioSinValorAdmin,
+  totalOPorDefinir,
+} from '../lib/valorAdmin';
 import { AlertTriangle, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
 import {
   compressPhoto,
@@ -449,6 +452,7 @@ export const TechnicianPortal = () => {
     /recoleccion|recogida/.test(nombreTipoCorreccion) &&
     !nombreTipoCorreccion.includes('incluye ayudante');
   const totalCuenta = cuenta?.total ?? 0;
+  const hayValorPorDefinir = servicios.some(servicioSinValorAdmin);
 
   // Agrupar servicios por número de orden para el técnico:
   // Si una orden tiene traslado, se unifica en una sola fila con el precio total sumado
@@ -529,14 +533,16 @@ export const TechnicianPortal = () => {
           o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
         ].filter(Boolean).join(' · '),
         valor: o.totalValor,
+        porDefinir: servicioSinValorAdmin(o.servicioPrincipal),
       })),
+      totalPorDefinir: hayValorPorDefinir,
     });
   };
 
   const handleDescargarHistorial = async (c: CuentaApi) => {
     const { downloadCuentaPdf } = await import('../lib/pdf');
     // Si viene con servicios, agruparlos también
-    const ordenesH: Record<string, { orden: string; tipo: string; desc: string[]; valor: number }> = {};
+    const ordenesH: Record<string, { orden: string; tipo: string; desc: string[]; valor: number; porDefinir: boolean }> = {};
     for (const s of c.servicios) {
       const clean = getNumeroOrdenLimpio(s.numero_orden);
       const isTraslado = s.numero_orden.startsWith('T-');
@@ -546,10 +552,12 @@ export const TechnicianPortal = () => {
           tipo: isTraslado ? 'Traslado' : (s.tipo_servicio_nombre ?? '—'),
           desc: [isTraslado ? `Traslado: ${s.descripcion_especifica || 'Sí'}` : s.descripcion_especifica].filter(Boolean) as string[],
           valor: Number(s.valor_cobrado),
+          porDefinir: servicioSinValorAdmin(s),
         };
       } else {
         if (!isTraslado) ordenesH[clean].tipo = s.tipo_servicio_nombre ?? '—';
         ordenesH[clean].valor += Number(s.valor_cobrado);
+        ordenesH[clean].porDefinir = ordenesH[clean].porDefinir || servicioSinValorAdmin(s);
         if (s.descripcion_especifica) {
           ordenesH[clean].desc.push(isTraslado ? `Traslado: ${s.descripcion_especifica}` : s.descripcion_especifica);
         }
@@ -568,7 +576,9 @@ export const TechnicianPortal = () => {
         tipo: o.tipo,
         descripcion: o.desc.join(' · '),
         valor: o.valor,
+        porDefinir: o.porDefinir,
       })),
+      totalPorDefinir: (c.servicios ?? []).some(servicioSinValorAdmin),
     });
   };
 
@@ -987,9 +997,7 @@ export const TechnicianPortal = () => {
                           )}
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '15px', fontWeight: '700', textAlign: 'right', color: 'var(--ink)' }}>
-                          {g.servicioPrincipal.requiere_valor_admin && g.servicioPrincipal.valor_cobrado <= 0
-                            ? 'Por definir'
-                            : formatCOP(g.totalValor)}
+                          {totalOPorDefinir(g.totalValor, servicioSinValorAdmin(g.servicioPrincipal))}
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '14px', textAlign: 'right' }}>
                           {puedeEditar && (
@@ -1036,9 +1044,7 @@ export const TechnicianPortal = () => {
                     <div className="order-card-heading">
                       <strong>Orden {g.numeroOrden}</strong>
                       <strong>
-                        {g.servicioPrincipal.requiere_valor_admin && g.servicioPrincipal.valor_cobrado <= 0
-                          ? 'Por definir'
-                          : formatCOP(g.totalValor)}
+                        {totalOPorDefinir(g.totalValor, servicioSinValorAdmin(g.servicioPrincipal))}
                       </strong>
                     </div>
                     <div className="order-card-type">{g.servicioPrincipal.tipo_servicio_nombre ?? 'Servicio Técnico'}</div>
@@ -1083,7 +1089,7 @@ export const TechnicianPortal = () => {
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-secondary)' }}>Total del período:</span>
-                  <span style={{ fontSize: '22px', fontWeight: '800', color: 'var(--blue)' }}>{formatCOP(totalCuenta)}</span>
+                  <span style={{ fontSize: '22px', fontWeight: '800', color: 'var(--blue)' }}>{totalOPorDefinir(totalCuenta, hayValorPorDefinir)}</span>
                 </div>
               </div>
 
@@ -1174,7 +1180,7 @@ export const TechnicianPortal = () => {
                   <article key={c.id} className="history-card">
                     <div className="order-card-heading">
                       <strong>{nombreMes(c.mes)} {c.anio}</strong>
-                      <strong>{formatCOP(c.total)}</strong>
+                      <strong>{totalOPorDefinir(Number(c.total ?? 0), (c.servicios ?? []).some(servicioSinValorAdmin))}</strong>
                     </div>
                     <div className="history-card-meta">{c.total_servicios} servicios</div>
                     <EstadoBadge estado={c.estado as EstadoServicio} />
@@ -1392,7 +1398,7 @@ const HistoryRow = ({
         {nombreMes(cuenta.mes)} {cuenta.anio}
       </td>
       <td style={{ padding: '16px 0', fontSize: '14px' }}>{cuenta.total_servicios} servicios</td>
-      <td style={{ padding: '16px 0', fontSize: '14px', fontWeight: '700' }}>{formatCOP(cuenta.total)}</td>
+      <td style={{ padding: '16px 0', fontSize: '14px', fontWeight: '700' }}>{totalOPorDefinir(Number(cuenta.total ?? 0), (cuenta.servicios ?? []).some(servicioSinValorAdmin))}</td>
       <td style={{ padding: '16px 0', fontSize: '14px' }}>
         <EstadoBadge estado={cuenta.estado as EstadoServicio} />
       </td>
