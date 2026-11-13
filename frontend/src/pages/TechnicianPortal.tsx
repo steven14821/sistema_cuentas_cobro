@@ -1022,12 +1022,12 @@ export const TechnicianPortal = () => {
                               Eliminar
                             </button>
                           )}
-                          {(enCorreccion || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                          {(puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
                             <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
                               <Edit2 size={13} /> Editar orden
                             </button>
                           )}
-                          {g.traslado && (enCorreccion || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                          {g.traslado && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
                             <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
                               <Edit2 size={13} /> Editar traslado
                             </button>
@@ -1059,12 +1059,12 @@ export const TechnicianPortal = () => {
                           <Trash2 size={14} /> Eliminar
                         </button>
                       )}
-                      {(enCorreccion || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                      {(puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
                         <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
                           <Edit2 size={14} /> Editar orden
                         </button>
                       )}
-                      {g.traslado && (enCorreccion || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                      {g.traslado && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
                         <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
                           <Edit2 size={14} /> Editar traslado
                         </button>
@@ -1227,7 +1227,9 @@ export const TechnicianPortal = () => {
               <div className="correction-heading">
                 <div>
                   <h2>{correccionEsTraslado ? 'Editar traslado' : 'Editar orden'} {getNumeroOrdenLimpio(editingService.numero_orden)}</h2>
-                  <p>Actualiza la información y guarda los cambios antes de reenviar toda la cuenta.</p>
+                  <p>{enCorreccion
+                    ? 'Actualiza la información y guarda los cambios antes de reenviar toda la cuenta.'
+                    : 'Actualiza la información y guarda los cambios.'}</p>
                 </div>
                 <button type="button" onClick={() => setEditingService(null)} aria-label="Cerrar corrección">×</button>
               </div>
