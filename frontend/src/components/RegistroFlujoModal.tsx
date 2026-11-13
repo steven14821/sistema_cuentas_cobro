@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { technicianApi, type ServiceApi } from '../services/technicianApi';
 import { formatCOP } from '../lib/period';
 import { POR_DEFINIR } from '../lib/valorAdmin';
-import { AlertCircle, Check, Receipt, ScanLine, Truck, User } from 'lucide-react';
+import { AlertCircle, Check, Receipt, Truck, User } from 'lucide-react';
 import { clearServiceDraft, getServiceDraft, QueuedOfflineError, saveServiceDraft } from '../lib/offlineStore';
 
 type TransportType = 'MOTO_PROPIA' | 'EMPRESA';
@@ -122,11 +122,8 @@ export const RegistroFlujoModal = ({
   const [fotosPuertas, setFotosPuertas] = useState<string[]>([]);
   const [fotosAyudante, setFotosAyudante] = useState<string[]>([]);
   const [draftReady, setDraftReady] = useState(false);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrMessage, setOcrMessage] = useState('');
   const puertasPhotoInput = useRef<HTMLInputElement>(null);
   const ayudantePhotoInput = useRef<HTMLInputElement>(null);
-  const orderPhotoInput = useRef<HTMLInputElement>(null);
   const quoteRequestId = useRef(0);
 
   useEffect(() => {
@@ -351,39 +348,6 @@ export const RegistroFlujoModal = ({
         ? `No se pudo cancelar la orden incompleta: ${err.message}`
         : 'No se pudo cancelar la orden incompleta. Inténtalo de nuevo.');
     }).finally(() => setSaving(false));
-  };
-
-  const handleReadOrderPhoto = async (file?: File) => {
-    if (!file) return;
-    setOcrLoading(true);
-    setOcrMessage('Leyendo el número en este dispositivo…');
-    setError('');
-    try {
-      const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng');
-      try {
-        await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-        const { data } = await worker.recognize(file);
-        const matches = data.text.match(/(?<!\d)\d{5}(?!\d)/g) ?? [];
-        const uniqueMatches = [...new Set(matches)];
-        if (uniqueMatches.length === 1) {
-          setNumeroOrden(uniqueMatches[0]);
-          setFieldErrors((current) => ({ ...current, order: '' }));
-          setOcrMessage(`Número detectado: ${uniqueMatches[0]}. Verifícalo antes de continuar.`);
-        } else if (uniqueMatches.length > 1) {
-          setOcrMessage(`Se encontraron varios números (${uniqueMatches.join(', ')}). Escríbelo manualmente.`);
-        } else {
-          setOcrMessage('No se detectó un número de 5 dígitos. Puedes escribirlo manualmente.');
-        }
-      } finally {
-        await worker.terminate();
-      }
-    } catch (err) {
-      setOcrMessage('');
-      setError(err instanceof Error ? `No se pudo leer la imagen: ${err.message}` : 'No se pudo leer la imagen.');
-    } finally {
-      setOcrLoading(false);
-    }
   };
 
   const validarOrden = (valor: string) => {
@@ -692,28 +656,6 @@ export const RegistroFlujoModal = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>Número de orden</label>
-                <input
-                  ref={orderPhotoInput}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(event) => {
-                    void handleReadOrderPhoto(event.target.files?.[0]);
-                    event.target.value = '';
-                  }}
-                  style={{ display: 'none' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => orderPhotoInput.current?.click()}
-                  disabled={ocrLoading}
-                  style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--info-border)', borderRadius: 9, background: 'var(--info-bg)', color: 'var(--info-text)', padding: '8px 11px', fontSize: 12, fontWeight: 700, cursor: ocrLoading ? 'wait' : 'pointer' }}
-                >
-                  <ScanLine size={15} />
-                  {ocrLoading ? 'Leyendo imagen…' : 'Leer orden desde una foto'}
-                </button>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 11 }}>El análisis se realiza en este dispositivo; la foto no se envía al servidor. La primera vez puede descargar el motor de lectura.</p>
-                {ocrMessage && <p role="status" style={{ margin: 0, color: 'var(--info-text)', fontSize: 12 }}>{ocrMessage}</p>}
                 <input
                   type="text"
                   inputMode="numeric"
