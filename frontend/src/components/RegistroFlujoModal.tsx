@@ -62,7 +62,7 @@ const marcasDisponibles: MarcaOption[] = ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL'
 
 function requiereTraslado(tipoNombre: string): boolean {
   const nombre = tipoNombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return !/carry[\s-]*in/.test(nombre) && !nombre.includes('instalacion');
+  return !/carry[\s-]*in/.test(nombre) && !nombre.includes('instalacion') && !nombre.includes('taller');
 }
 
 export const RegistroFlujoModal = ({
@@ -984,7 +984,7 @@ export const RegistroFlujoModal = ({
                   Guardar borrador y salir
                 </button>
                 <button type="button" onClick={handleSiguienteServicio} disabled={saving} style={{ flex: 1, padding: '12px', borderRadius: '11px', border: 'none', background: saving ? 'var(--text-secondary)' : 'var(--blue-solid)', color: 'var(--on-accent)', fontWeight: '600', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Guardando servicio…' : 'Continuar a traslado'}
+                  {saving ? 'Guardando servicio…' : tipoActual && !requiereTraslado(tipoActual.nombre) ? 'Guardar orden' : 'Continuar a traslado'}
                 </button>
               </div>
             </div>
