@@ -228,7 +228,7 @@ async function bootstrap() {
   for (const marca of ['SAMSUNG', 'HYUNDAI', 'TCL'] as const) {
     await renameType(
       `${marca}: Recolección TV cambio a partir de 75" (+ ayudante)`,
-      `${marca}: Recolección TV a partir de 75"`,
+      `${marca}: Recolección TV a partir de 75" (incluye ayudante)`,
       30000,
     );
     // Residuos de la ronda anterior que ya no están en el catálogo canónico.
@@ -284,7 +284,7 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)', valor: 55000 },
     { nombre: 'SAMSUNG: Recolección TV cambio hasta 58"', valor: 10000 },
     { nombre: 'SAMSUNG: Recolección TV cambio 60"-70" (ayudante)', valor: 20000 },
-    { nombre: 'SAMSUNG: Recolección TV a partir de 75"', valor: 30000 },
+    { nombre: 'SAMSUNG: Recolección TV a partir de 75" (incluye ayudante)', valor: 30000 },
     { nombre: 'SAMSUNG: Eco Repair IH hasta 60"', valor: 38000 },
     { nombre: 'SAMSUNG: Eco Repair IH 65" y 70"', valor: 48000 },
     { nombre: 'SAMSUNG: Eco Repair IH desde 75" (incluye ayudantes)', valor: 75000 },
@@ -418,9 +418,11 @@ async function bootstrap() {
     'SAMSUNG: Recolección aire (desinstalar)':
       'SAMSUNG: Recolección de aire acondicionado split con desinstalación (incluye ayudante)',
     'SAMSUNG: Recolección TV cambio a partir de 75" (+ ayudante)':
-      'SAMSUNG: Recolección TV a partir de 75"',
+      'SAMSUNG: Recolección TV a partir de 75" (incluye ayudante)',
     'SAMSUNG: Recolección TV cambio a partir de 75"':
-      'SAMSUNG: Recolección TV a partir de 75"',
+      'SAMSUNG: Recolección TV a partir de 75" (incluye ayudante)',
+    'SAMSUNG: Recolección TV a partir de 75"':
+      'SAMSUNG: Recolección TV a partir de 75" (incluye ayudante)',
     'SAMSUNG: Recolección producto cambio lav/nev (Frontal)':
       'SAMSUNG: Recolección producto cambio Lavadora frontal (incluye ayudante)',
     'SAMSUNG: Recolección producto cambio lav/nev (Frontal ayudante)':

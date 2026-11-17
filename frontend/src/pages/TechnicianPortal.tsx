@@ -21,6 +21,7 @@ import {
   servicioSinValorAdmin,
   totalOPorDefinir,
 } from '../lib/valorAdmin';
+import { esNeveconManoAManoTipo, preguntaPorAyudante } from '../lib/ayudante';
 import { AlertTriangle, CheckCircle2, Edit2, Plus, RotateCw, Send, Trash2, Truck, Wifi, WifiOff } from 'lucide-react';
 import {
   compressPhoto,
@@ -444,13 +445,10 @@ export const TechnicianPortal = () => {
     ? lugaresCucuta
     : lugaresBucaramanga;
   const tipoCorreccion = tipos.find((tipo) => tipo.id === correctionTypeId);
-  const nombreTipoCorreccion = normalizeText(tipoCorreccion?.nombre ?? '');
+  const nombreTipoCorreccion = tipoCorreccion?.nombre ?? '';
   const correccionEsTraslado = !!editingService?.numero_orden.startsWith('T-');
-  const correccionEsNevecon = /recoleccion|recogida/.test(nombreTipoCorreccion) &&
-    nombreTipoCorreccion.includes('nevecon') && nombreTipoCorreccion.includes('mano a mano');
-  const correccionEsAyudanteOpcional =
-    /recoleccion|recogida/.test(nombreTipoCorreccion) &&
-    !nombreTipoCorreccion.includes('incluye ayudante');
+  const correccionEsNevecon = esNeveconManoAManoTipo(nombreTipoCorreccion);
+  const correccionEsAyudanteOpcional = preguntaPorAyudante(nombreTipoCorreccion);
   const totalCuenta = cuenta?.total ?? 0;
   const hayValorPorDefinir = servicios.some(servicioSinValorAdmin);
 

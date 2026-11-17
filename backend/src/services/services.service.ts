@@ -1,4 +1,5 @@
 import { encryptDatosCobro, decryptDatosCobro, type DatosCobro } from './crypto.util';
+import { esNeveconManoAManoTipo, esRecoleccionTipo, preguntaPorAyudante } from './ayudante.util';
 import {
   Injectable,
   BadRequestException,
@@ -145,15 +146,9 @@ export class ServicesService {
       throw new BadRequestException('La cantidad de puertas desmontadas debe estar entre 0 y 4 por equipo.');
     }
     const puertasDesmontadas = puertasAntiguo + puertasNuevo;
-    const nombreTipoNormalizado = tipo.nombre
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-    const esRecoleccion = /recoleccion|recogida/.test(nombreTipoNormalizado);
-    const incluyeAyudante = esRecoleccion && nombreTipoNormalizado.includes('incluye ayudante');
-    const requiereAyudante = (dto.requiere_ayudante ?? false) && !incluyeAyudante;
-    const esNeveconManoAMano = esRecoleccion && nombreTipoNormalizado.includes('nevecon') &&
-      nombreTipoNormalizado.includes('mano a mano');
+    const esRecoleccion = esRecoleccionTipo(tipo.nombre);
+    const requiereAyudante = (dto.requiere_ayudante ?? false) && preguntaPorAyudante(tipo.nombre);
+    const esNeveconManoAMano = esNeveconManoAManoTipo(tipo.nombre);
     if (puertasDesmontadas > 0 && !esNeveconManoAMano) {
       throw new BadRequestException(
         'El desmonte de puertas solo aplica a la recolección de nevecon mano a mano.',
@@ -557,18 +552,11 @@ export class ServicesService {
       if (!tipoServicio || !tipoServicio.activo) {
         throw new BadRequestException('El tipo de servicio no existe o está inactivo.');
       }
-      const nombreNormalizado = tipoServicio.nombre
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-      const esRecoleccion = /recoleccion|recogida/.test(nombreNormalizado);
-      const incluyeAyudante = esRecoleccion && nombreNormalizado.includes('incluye ayudante');
-      const esNeveconManoAMano = esRecoleccion && nombreNormalizado.includes('nevecon') &&
-        nombreNormalizado.includes('mano a mano');
+      const esNeveconManoAMano = esNeveconManoAManoTipo(tipoServicio.nombre);
       const puertasAntiguo = esNeveconManoAMano ? (dto.puertas_nevecon_antiguo ?? 0) : 0;
       const puertasNuevo = esNeveconManoAMano ? (dto.puertas_nevecon_nuevo ?? 0) : 0;
       const puertasDesmontadas = puertasAntiguo + puertasNuevo;
-      const requiereAyudante = esRecoleccion && !incluyeAyudante && (dto.requiere_ayudante ?? false);
+      const requiereAyudante = preguntaPorAyudante(tipoServicio.nombre) && (dto.requiere_ayudante ?? false);
       fotos = dto.fotos ?? servicio.fotos;
       if (
         fotos.length > 10 ||

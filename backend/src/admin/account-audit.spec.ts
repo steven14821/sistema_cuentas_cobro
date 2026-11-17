@@ -17,7 +17,23 @@ describe('account tariff audit', () => {
     });
   });
 
-  it('includes the doors of both nevecon units and the helper in the expected amount', () => {
+  it('includes the doors of both nevecon units in the expected amount', () => {
+    const result = auditServiceTariff({
+      numero_orden: 'BUC-12345',
+      descripcion_especifica: 'Recolección: Puertas desmontadas: nevecon antiguo 2, nevecon nuevo 1 (fotos: 2)',
+      valor_cobrado: 70_000,
+      valor_estandar: 40_000,
+      tipo_servicio_nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
+    });
+
+    expect(result).toMatchObject({
+      status: 'match',
+      expected: 70_000,
+    });
+    expect(result.explanation).toContain('2 del nevecon antiguo y 1 del nuevo');
+  });
+
+  it('does not accept the helper extra on a nevecon mano a mano', () => {
     const result = auditServiceTariff({
       numero_orden: 'BUC-12345',
       descripcion_especifica: 'Recolección: Puertas desmontadas: nevecon antiguo 2, nevecon nuevo 1 (fotos: 2), Ayudante: sí (motivo: acceso, fotos del motivo: 1)',
@@ -26,11 +42,19 @@ describe('account tariff audit', () => {
       tipo_servicio_nombre: 'SAMSUNG: Recolección Nevecon mano a mano',
     });
 
-    expect(result).toMatchObject({
-      status: 'match',
-      expected: 80_000,
+    expect(result).toMatchObject({ status: 'mismatch', expected: 70_000, difference: 10_000 });
+  });
+
+  it('does not accept the helper extra when the tariff name already declares it', () => {
+    const result = auditServiceTariff({
+      numero_orden: 'BUC-12345',
+      descripcion_especifica: 'Recolección: Ayudante: sí (motivo: acceso, fotos del motivo: 1)',
+      valor_cobrado: 30_000,
+      valor_estandar: 20_000,
+      tipo_servicio_nombre: 'SAMSUNG: Recolección TV cambio 60"-70" (ayudante)',
     });
-    expect(result.explanation).toContain('2 del nevecon antiguo y 1 del nuevo');
+
+    expect(result).toMatchObject({ status: 'mismatch', expected: 20_000, difference: 10_000 });
   });
 
   it('still audits orders recorded with a single door total', () => {

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { technicianApi, type ServiceApi } from '../services/technicianApi';
 import { formatCOP } from '../lib/period';
 import { POR_DEFINIR } from '../lib/valorAdmin';
+import { esNeveconManoAManoTipo, preguntaPorAyudante } from '../lib/ayudante';
 import { AlertCircle, Check, Receipt, Truck, User } from 'lucide-react';
 import { clearServiceDraft, getServiceDraft, QueuedOfflineError, saveServiceDraft } from '../lib/offlineStore';
 
@@ -195,13 +196,8 @@ export const RegistroFlujoModal = ({
   const tipoActual = types.find((t) => t.id === tipoId) ?? null;
   const valorPorDefinirAdmin = !!tipoActual?.requiere_valor_admin;
   const tipoValor = tipoActual && !valorPorDefinirAdmin ? Number(tipoActual.valor_estandar) : 0;
-  const nombreTipoNormalizado = tipoActual?.nombre.normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').toLowerCase() ?? '';
-  const esRecoleccion = /recoleccion|recogida/.test(nombreTipoNormalizado);
-  const incluyeAyudante = esRecoleccion && nombreTipoNormalizado.includes('incluye ayudante');
-  const esRecoleccionConAyudanteOpcional = esRecoleccion && !incluyeAyudante;
-  const esNeveconManoAMano = esRecoleccion && nombreTipoNormalizado.includes('nevecon') &&
-    nombreTipoNormalizado.includes('mano a mano');
+  const esNeveconManoAMano = esNeveconManoAManoTipo(tipoActual?.nombre ?? '');
+  const esRecoleccionConAyudanteOpcional = preguntaPorAyudante(tipoActual?.nombre);
   const requiereFotoPuertas = esNeveconManoAMano && desmontoPuertas;
   const requiereFotoAyudante = esRecoleccionConAyudanteOpcional && requiereAyudante;
   const cantidadPuertasValida = [puertasNeveconAntiguo, puertasNeveconNuevo].every(
@@ -730,16 +726,12 @@ export const RegistroFlujoModal = ({
                   onChange={(e) => {
                     setTipoId(e.target.value);
                     const selectedType = types.find((type) => type.id === e.target.value);
-                    const normalizedName = selectedType?.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() ?? '';
-                    const selectedIsCollection = /recoleccion|recogida/.test(normalizedName);
-                    const selectedIncludesHelper = selectedIsCollection && normalizedName.includes('incluye ayudante');
-                    const selectedIsNevecon = selectedIsCollection && normalizedName.includes('nevecon') &&
-                      normalizedName.includes('mano a mano');
-                    if (!selectedIsCollection || selectedIncludesHelper) {
+                    const selectedNombre = selectedType?.nombre ?? '';
+                    if (!preguntaPorAyudante(selectedNombre)) {
                       setRequiereAyudante(false);
                       setFotosAyudante([]);
                     }
-                    if (!selectedIsNevecon) {
+                    if (!esNeveconManoAManoTipo(selectedNombre)) {
                       setDesmontoPuertas(false);
                       setPuertasNeveconAntiguo(0);
                       setPuertasNeveconNuevo(0);

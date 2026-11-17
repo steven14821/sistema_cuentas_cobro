@@ -1,3 +1,5 @@
+import { esNeveconManoAManoTipo, esRecoleccionTipo, preguntaPorAyudante } from '../services/ayudante.util';
+
 export type TariffAuditStatus = 'match' | 'mismatch' | 'manual_review';
 
 export type TariffAuditResult = {
@@ -70,9 +72,8 @@ export function auditServiceTariff(service: ServiceTariffInput): TariffAuditResu
   const doorsNew = Number(splitDoors?.[2] ?? 0);
   const doors = doorsOld + doorsNew;
   const hasHelper = /ayudante:\s*si\b/.test(description);
-  const isCollection = /recoleccion|recogida/.test(serviceName);
-  const isNeveconManoAMano = isCollection && serviceName.includes('nevecon') &&
-    serviceName.includes('mano a mano');
+  const isCollection = esRecoleccionTipo(serviceName);
+  const isNeveconManoAMano = esNeveconManoAManoTipo(serviceName);
   if (doors > 0 && (!isNeveconManoAMano || doorsOld > 4 || doorsNew > 4)) {
     return needsManualReview(
       charged,
@@ -86,8 +87,7 @@ export function auditServiceTariff(service: ServiceTariffInput): TariffAuditResu
     );
   }
 
-  const includesHelper = serviceName.includes('incluye ayudante');
-  const helperCharge = !includesHelper && hasHelper ? 10_000 : 0;
+  const helperCharge = hasHelper && preguntaPorAyudante(serviceName) ? 10_000 : 0;
   const expected = standard + doors * 10_000 + helperCharge;
   const difference = charged - expected;
   const explanation = [
