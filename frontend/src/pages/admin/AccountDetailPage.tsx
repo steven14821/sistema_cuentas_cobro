@@ -718,22 +718,24 @@ export const AccountDetailPage = () => {
                               <Pencil size={13} /> Cambiar tipo
                             </button>
 
-                            {s.requiere_valor_admin && (
-                              <button
-                                type="button"
-                                title="Asignar el valor de este servicio sin tarifa fija"
-                                onClick={() => handleOpenServiceValue(s)}
-                                style={{
-                                  ...actionMiniBtn,
-                                  backgroundColor: faltaValorAdmin ? 'var(--warning-bg)' : 'var(--info-bg)',
-                                  color: faltaValorAdmin ? 'var(--warning-text)' : 'var(--info-text)',
-                                  borderColor: faltaValorAdmin ? 'var(--warning-border)' : 'var(--info-border)',
-                                  fontWeight: 700,
-                                }}
-                              >
-                                <DollarSign size={13} /> Asignar valor
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              title={
+                                s.requiere_valor_admin
+                                  ? 'Asignar el valor de este servicio sin tarifa fija'
+                                  : 'Modificar manualmente el precio de este servicio'
+                              }
+                              onClick={() => handleOpenServiceValue(s)}
+                              style={{
+                                ...actionMiniBtn,
+                                backgroundColor: faltaValorAdmin ? 'var(--warning-bg)' : 'var(--info-bg)',
+                                color: faltaValorAdmin ? 'var(--warning-text)' : 'var(--info-text)',
+                                borderColor: faltaValorAdmin ? 'var(--warning-border)' : 'var(--info-border)',
+                                fontWeight: 700,
+                              }}
+                            >
+                              <DollarSign size={13} /> {faltaValorAdmin ? 'Asignar valor' : 'Modificar precio'}
+                            </button>
 
                             <button
                               type="button"
@@ -882,15 +884,18 @@ export const AccountDetailPage = () => {
                       >
                         <Pencil size={15} /> Cambiar tipo
                       </button>
-                      {s.requiere_valor_admin && (
-                        <button
-                          type="button"
-                          className="admin-service-action assign-value"
-                          onClick={() => handleOpenServiceValue(s)}
-                        >
-                          <DollarSign size={15} /> Asignar valor
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="admin-service-action assign-value"
+                        title={
+                          s.requiere_valor_admin
+                            ? 'Asignar el valor de este servicio sin tarifa fija'
+                            : 'Modificar manualmente el precio de este servicio'
+                        }
+                        onClick={() => handleOpenServiceValue(s)}
+                      >
+                        <DollarSign size={15} /> {faltaValorAdmin ? 'Asignar valor' : 'Modificar precio'}
+                      </button>
                       <button
                         type="button"
                         className="admin-service-action approve"
@@ -1042,7 +1047,7 @@ export const AccountDetailPage = () => {
                     : formatCOP(selectedOrder.servicioPrincipal.valor_cobrado)}
                 </div>
 
-                {selectedOrder.servicioPrincipal.requiere_valor_admin && (
+                {selectedOrder.servicioPrincipal.requiere_valor_admin ? (
                   <div className="service-type-price-note" style={{ marginBottom: 12 }}>
                     Este servicio no tiene tarifa fija: el valor lo asignas tú.
                     {selectedOrder.traslado && ' Al guardarlo se recalcula el traslado de la misma orden.'}
@@ -1053,6 +1058,17 @@ export const AccountDetailPage = () => {
                       onClick={() => handleOpenServiceValue(selectedOrder.servicioPrincipal)}
                     >
                       <DollarSign size={15} /> Asignar valor
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 12 }}>
+                    <button
+                      type="button"
+                      className="admin-service-action assign-value"
+                      style={{ width: '100%' }}
+                      onClick={() => handleOpenServiceValue(selectedOrder.servicioPrincipal)}
+                    >
+                      <DollarSign size={15} /> Modificar precio de este servicio
                     </button>
                   </div>
                 )}
@@ -1247,7 +1263,11 @@ export const AccountDetailPage = () => {
               <div className="service-type-heading">
                 <div>
                   <p>ORDEN {serviceValueTarget.numero_orden}</p>
-                  <h2>Asignar valor del servicio</h2>
+                  <h2>
+                    {serviceValueTarget.requiere_valor_admin
+                      ? 'Asignar valor del servicio'
+                      : 'Modificar precio del servicio'}
+                  </h2>
                 </div>
                 <button type="button" onClick={() => setServiceValueTarget(null)} aria-label="Cerrar">×</button>
               </div>
@@ -1270,7 +1290,9 @@ export const AccountDetailPage = () => {
                 required
               />
               <div className="service-type-price-note">
-                Este tipo de servicio no tiene tarifa fija. El valor es obligatorio antes de aprobar
+                {serviceValueTarget.requiere_valor_admin
+                  ? 'Este tipo de servicio no tiene tarifa fija. El valor es obligatorio antes de aprobar'
+                  : 'Puedes ajustar manualmente el precio de este servicio sin alterar su tipo original'}
                 {account.radicada ? '' : ' y solo puede asignarse cuando la cuenta esté radicada'}.
                 Si la orden tiene traslado, su valor se recalcula automáticamente. El técnico deberá volver a firmar.
               </div>

@@ -292,6 +292,7 @@ async function bootstrap() {
     { nombre: 'SAMSUNG: Limpieza partículas pantalla', valor: 30000 },
     { nombre: 'SAMSUNG: Instalacion Panel ow de 65" hasta 75"', valor: 75000 },
     { nombre: 'SAMSUNG: Instalacion Panel ow hasta 58"', valor: 55000 },
+    { nombre: 'SAMSUNG: Rodamiento', valor: 0, requiere_valor_admin: true },
 
     // Traslados BGA
     { nombre: 'TRASLADO: Piedecuesta', valor: 8000 },
@@ -345,7 +346,7 @@ async function bootstrap() {
     { nombre: 'ZURICH: Diagnostico Nevecon IH', valor: 20000 },
     { nombre: 'ZURICH: Diagnostico lavavajillas IH', valor: 15000 },
     { nombre: 'ZURICH: Diagnostico aire split', valor: 20000 },
-    { nombre: 'ZURICH: Reparación', valor: 0 },
+    { nombre: 'ZURICH: Reparación', valor: 0, requiere_valor_admin: true },
 
     // Hyundai y TCL: catálogo exclusivo para TV.
     ...(['HYUNDAI', 'TCL'] as const).flatMap((marca) =>
@@ -395,8 +396,17 @@ async function bootstrap() {
     if (DRY) break;
     await prisma.tipos_servicio.upsert({
       where: { nombre: t.nombre },
-      update: { valor_estandar: t.valor, activo: true },
-      create: { nombre: t.nombre, valor_estandar: t.valor, activo: true },
+      update: {
+        valor_estandar: t.valor,
+        activo: true,
+        requiere_valor_admin: (t as any).requiere_valor_admin ?? false,
+      },
+      create: {
+        nombre: t.nombre,
+        valor_estandar: t.valor,
+        activo: true,
+        requiere_valor_admin: (t as any).requiere_valor_admin ?? false,
+      },
     });
   }
 

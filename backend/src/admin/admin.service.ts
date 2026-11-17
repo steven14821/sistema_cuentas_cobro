@@ -205,9 +205,6 @@ export class AdminService {
       if (!servicio) {
         throw new NotFoundException('Servicio no encontrado.');
       }
-      if (!servicio.tipos_servicio?.requiere_valor_admin) {
-        throw new BadRequestException('Este servicio tiene tarifa fija y no admite un valor manual.');
-      }
       if (!servicio.cuentas_cobro?.radicada) {
         throw new BadRequestException('Solo se puede asignar el valor a servicios de una cuenta radicada.');
       }

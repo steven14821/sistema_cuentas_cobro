@@ -195,15 +195,23 @@ describe('AdminService — deleteUser', () => {
       expect(prisma.servicios.update).toHaveBeenCalledTimes(1);
     });
 
-    it('rechaza un valor manual en un servicio con tarifa fija', async () => {
+    it('permite modificar el valor en un servicio con tarifa fija', async () => {
       prisma.servicios.findUnique.mockResolvedValue({
         ...zurich,
         tipos_servicio: { ...zurich.tipos_servicio, requiere_valor_admin: false },
       });
+      prisma.servicios.update.mockResolvedValue({ ...zurich, valor_cobrado: 90_000 });
+      prisma.cuentas_cobro.update.mockResolvedValue({});
+      prisma.auditoria_servicios.create.mockResolvedValue({});
+      prisma.servicios.findMany.mockResolvedValue([]);
 
-      await expect(service.updateServiceValue('service-zurich', 80_000, 'admin-1'))
-        .rejects.toThrow('tarifa fija');
-      expect(prisma.servicios.update).not.toHaveBeenCalled();
+      await service.updateServiceValue('service-zurich', 90_000, 'admin-1');
+      expect(prisma.servicios.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'service-zurich' },
+          data: expect.objectContaining({ valor_cobrado: 90_000 }),
+        }),
+      );
     });
 
     it('rechaza valores en cero', async () => {
