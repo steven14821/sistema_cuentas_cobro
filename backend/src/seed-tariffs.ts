@@ -306,6 +306,7 @@ async function bootstrap() {
     { nombre: 'TRASLADO: Curos', valor: 12000 },
     { nombre: 'TRASLADO: Sogamoso', valor: 35000 },
     { nombre: 'TRASLADO: Matanza', valor: 25000 },
+    { nombre: 'TRASLADO: California', valor: 40000 },
     { nombre: 'TRASLADO: Acapulco', valor: 9000 },
     { nombre: 'TRASLADO: San Vicente', valor: 75000 },
     { nombre: 'TRASLADO: Barrancabermeja', valor: 85000 },

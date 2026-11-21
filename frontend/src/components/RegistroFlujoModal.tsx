@@ -36,6 +36,7 @@ export const lugaresBucaramanga = [
   { id: 'CUARESMA', nombre: 'Cuaresma', valor: 12000, dbNombre: 'TRASLADO: Curos' },
   { id: 'SOGAMOSO', nombre: 'Sogamoso', valor: 35000, dbNombre: 'TRASLADO: Sogamoso' },
   { id: 'MATANZA', nombre: 'Matanza', valor: 25000, dbNombre: 'TRASLADO: Matanza' },
+  { id: 'CALIFORNIA', nombre: 'California', valor: 40000, dbNombre: 'TRASLADO: California' },
   { id: 'ACAPULCO', nombre: 'Acapulco', valor: 9000, dbNombre: 'TRASLADO: Acapulco' },
   { id: 'SAN_VICENTE', nombre: 'San Vicente', valor: 75000, dbNombre: 'TRASLADO: San Vicente' },
   { id: 'BARRANCABERMEJA', nombre: 'Barrancabermeja', valor: 85000, dbNombre: 'TRASLADO: Barrancabermeja' },
