@@ -1020,12 +1020,12 @@ export const TechnicianPortal = () => {
                               Eliminar
                             </button>
                           )}
-                          {(puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                          {enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
                             <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
                               <Edit2 size={13} /> Editar orden
                             </button>
                           )}
-                          {g.traslado && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                          {g.traslado && enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
                             <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
                               <Edit2 size={13} /> Editar traslado
                             </button>
@@ -1057,12 +1057,12 @@ export const TechnicianPortal = () => {
                           <Trash2 size={14} /> Eliminar
                         </button>
                       )}
-                      {(puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                      {enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
                         <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
                           <Edit2 size={14} /> Editar orden
                         </button>
                       )}
-                      {g.traslado && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                      {g.traslado && enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
                         <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
                           <Edit2 size={14} /> Editar traslado
                         </button>

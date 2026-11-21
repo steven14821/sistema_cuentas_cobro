@@ -350,7 +350,11 @@ export class AdminService {
     });
   }
 
-  // Si todos los servicios de la cuenta comparten estado, se refleja en la cuenta.
+  // Si todos los servicios han sido revisados (ninguno pendiente), se actualiza el estado de la cuenta:
+  // - Si todos están Aprobado -> Aprobado.
+  // - Si alguno está Rechazado -> Rechazado.
+  // - Si alguno está Observado y el resto Aprobado -> Observado.
+  // - Si todavía queda al menos uno en Pendiente -> La cuenta sigue Pendiente (admin aún revisando).
   private async recomputeCuentaEstado(cuentaId: string): Promise<boolean> {
     const [cuenta, servicios] = await Promise.all([
       this.prisma.cuentas_cobro.findUnique({
@@ -359,23 +363,50 @@ export class AdminService {
       }),
       this.prisma.servicios.findMany({
         where: { cuenta_cobro_id: cuentaId },
+        select: { estado: true },
       }),
     ]);
 
-    const estados = new Set(servicios.map((s: any) => s.estado));
-    const estado = estados.size === 1 ? ([...estados][0] as EstadoServicio) : undefined;
-    if (!estado) return false;
+    if (!servicios.length) return false;
+
+    // Si aún queda algún servicio pendiente de revisión por el admin, la cuenta sigue Pendiente.
+    const hayPendiente = servicios.some((s: any) => s.estado === 'Pendiente');
+    if (hayPendiente) {
+      if (cuenta?.estado !== 'Pendiente') {
+        await this.prisma.cuentas_cobro.update({
+          where: { id: cuentaId },
+          data: {
+            firma_tecnico: null,
+            fecha_firma: null,
+            estado: 'Pendiente',
+            fecha_aprobacion: null,
+          },
+        });
+      }
+      return false;
+    }
+
+    // Todos los servicios fueron revisados (ninguno está Pendiente).
+    const todosAprobados = servicios.every((s: any) => s.estado === 'Aprobado');
+    const hayRechazado = servicios.some((s: any) => s.estado === 'Rechazado');
+    const nuevoEstado: EstadoServicio = todosAprobados
+      ? 'Aprobado'
+      : hayRechazado
+        ? 'Rechazado'
+        : 'Observado';
+
+    if (cuenta?.estado === nuevoEstado) return false;
 
     await this.prisma.cuentas_cobro.update({
       where: { id: cuentaId },
       data: {
         firma_tecnico: null,
         fecha_firma: null,
-        estado,
-        fecha_aprobacion: estado === 'Aprobado' ? new Date() : null,
+        estado: nuevoEstado,
+        fecha_aprobacion: nuevoEstado === 'Aprobado' ? new Date() : null,
       },
     });
-    return estado === 'Aprobado' && cuenta?.estado !== 'Aprobado';
+    return nuevoEstado === 'Aprobado' && cuenta?.estado !== 'Aprobado';
   }
 
   private async sendApprovalEmail(account: {
