@@ -29,6 +29,9 @@ import {
   lugaresCucuta,
   RegistroFlujoModal,
 } from '../components/RegistroFlujoModal';
+
+type MarcaOption = 'SAMSUNG' | 'HISENSE' | 'HYUNDAI' | 'TCL' | 'ZURICH';
+const marcasDisponibles: MarcaOption[] = ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'];
 import {
   enqueueOperation,
   getCachedValue,
@@ -112,6 +115,7 @@ export const TechnicianPortal = () => {
   const [syncingQueue, setSyncingQueue] = useState(false);
   const queueSyncLock = useRef(false);
   const [editingService, setEditingService] = useState<ServiceApi | null>(null);
+  const [correctionMarca, setCorrectionMarca] = useState<MarcaOption>('SAMSUNG');
   const [correctionOrder, setCorrectionOrder] = useState('');
   const [correctionDescription, setCorrectionDescription] = useState('');
   const [correctionTypeId, setCorrectionTypeId] = useState('');
@@ -654,6 +658,13 @@ export const TechnicianPortal = () => {
     const details = getCorrectionDetails(service);
     setCorrectionError('');
     setEditingService(service);
+
+    // Detectar la marca del servicio a partir del nombre (ej: "SAMSUNG: Reparacion...")
+    const rawNombre = service.tipo_servicio_nombre ?? '';
+    const prefix = rawNombre.split(':')[0]?.trim().toUpperCase();
+    const detectedMarca = marcasDisponibles.find((m) => m === prefix) ?? 'SAMSUNG';
+    setCorrectionMarca(detectedMarca);
+
     setCorrectionOrder(getNumeroOrdenLimpio(service.numero_orden));
     setCorrectionDescription(details.description);
     setCorrectionTypeId(service.tipo_servicio_id);
@@ -777,30 +788,32 @@ export const TechnicianPortal = () => {
                   La cuenta fue devuelta para corrección. Puedes editar, agregar o quitar órdenes; al terminar, envíala de nuevo a revisión.
                 </div>
               )}
-              <button
-                onClick={() => {
-                  setShowModal(true);
-                  refreshTiposIfStale();
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: 'var(--blue-solid)',
-                  color: 'var(--on-accent)',
-                  border: 'none',
-                  padding: '12px 20px',
-                  borderRadius: '14px',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(0, 113, 227, 0.25)',
-                  transition: 'transform 0.15s ease, background-color 0.15s ease'
-                }}
-              >
-                <Plus size={18} />
-                {enCorreccion ? 'Agregar orden' : 'Agregar Servicio'}
-              </button>
+              {puedeEditar && !radicada && (
+                <button
+                  onClick={() => {
+                    setShowModal(true);
+                    refreshTiposIfStale();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    backgroundColor: 'var(--blue-solid)',
+                    color: 'var(--on-accent)',
+                    border: 'none',
+                    padding: '12px 20px',
+                    borderRadius: '14px',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(0, 113, 227, 0.25)',
+                    transition: 'transform 0.15s ease, background-color 0.15s ease'
+                  }}
+                >
+                  <Plus size={18} />
+                  Agregar Servicio
+                </button>
+              )}
             </div>
           ) : (
             <div style={{
@@ -998,7 +1011,7 @@ export const TechnicianPortal = () => {
                           {totalOPorDefinir(g.totalValor, servicioSinValorAdmin(g.servicioPrincipal))}
                         </td>
                         <td style={{ padding: '16px 0', fontSize: '14px', textAlign: 'right' }}>
-                          {puedeEditar && (
+                          {puedeEditar && !radicada && (
                             <button
                               onClick={() => handleEliminarOrden(g)}
                               title="Eliminar orden y su traslado"
@@ -1020,12 +1033,12 @@ export const TechnicianPortal = () => {
                               Eliminar
                             </button>
                           )}
-                          {enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                          {enCorreccion && ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado) && (
                             <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
                               <Edit2 size={13} /> Editar orden
                             </button>
                           )}
-                          {g.traslado && enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                          {g.traslado && enCorreccion && ['Observado', 'Rechazado'].includes(g.traslado.estado) && (
                             <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
                               <Edit2 size={13} /> Editar traslado
                             </button>
@@ -1052,17 +1065,17 @@ export const TechnicianPortal = () => {
                       <p className="order-card-observation"><strong>Observación:</strong> {g.servicioObservado.ultima_observacion}</p>
                     )}
                     <div className="order-card-actions">
-                      {puedeEditar && (
+                      {puedeEditar && !radicada && (
                         <button type="button" onClick={() => handleEliminarOrden(g)} className="order-card-delete">
                           <Trash2 size={14} /> Eliminar
                         </button>
                       )}
-                      {enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado)) && (
+                      {enCorreccion && ['Observado', 'Rechazado'].includes(g.servicioPrincipal.estado) && (
                         <button type="button" onClick={() => startCorrection(g.servicioPrincipal)} className="order-card-correct">
                           <Edit2 size={14} /> Editar orden
                         </button>
                       )}
-                      {g.traslado && enCorreccion && (puedeEditar || ['Observado', 'Rechazado'].includes(g.traslado.estado)) && (
+                      {g.traslado && enCorreccion && ['Observado', 'Rechazado'].includes(g.traslado.estado) && (
                         <button type="button" onClick={() => startCorrection(g.traslado!)} className="order-card-correct">
                           <Edit2 size={14} /> Editar traslado
                         </button>
@@ -1262,19 +1275,66 @@ export const TechnicianPortal = () => {
                 </>
               ) : (
                 <>
-                  <label>
-                    Tipo de servicio
-                    <select value={correctionTypeId} onChange={(event) => {
-                      setCorrectionTypeId(event.target.value);
-                      setCorrectionDoorsOld(0);
-                      setCorrectionDoorsNew(0);
-                      setCorrectionHelper(false);
-                      setCorrectionHelperReason('');
-                    }} required>
-                      <option value="">Selecciona el tipo de servicio...</option>
-                      {tipos.filter((tipo) => !normalizeText(tipo.nombre).startsWith('traslado')).map((tipo) => (
-                        <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '600' }}>Marca del equipo</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                      {marcasDisponibles.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            setCorrectionMarca(m);
+                            setCorrectionTypeId('');
+                            setCorrectionDoorsOld(0);
+                            setCorrectionDoorsNew(0);
+                            setCorrectionHelper(false);
+                            setCorrectionHelperReason('');
+                          }}
+                          style={{
+                            padding: '8px 4px',
+                            borderRadius: '8px',
+                            border: correctionMarca === m ? '2px solid var(--blue)' : '1px solid var(--border-strong)',
+                            background: correctionMarca === m ? 'var(--blue-bg)' : 'var(--surface)',
+                            color: correctionMarca === m ? 'var(--blue)' : 'var(--ink)',
+                            fontWeight: correctionMarca === m ? '700' : '500',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            textTransform: 'uppercase',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {m}
+                        </button>
                       ))}
+                    </div>
+                  </div>
+
+                  <label>
+                    Tipo de servicio ({correctionMarca})
+                    <select
+                      value={correctionTypeId}
+                      onChange={(event) => {
+                        setCorrectionTypeId(event.target.value);
+                        setCorrectionDoorsOld(0);
+                        setCorrectionDoorsNew(0);
+                        setCorrectionHelper(false);
+                        setCorrectionHelperReason('');
+                      }}
+                      required
+                    >
+                      <option value="">Selecciona el tipo de servicio...</option>
+                      {tipos
+                        .filter((tipo) => {
+                          const normal = normalizeText(tipo.nombre);
+                          if (normal.startsWith('traslado')) return false;
+                          return tipo.nombre.toUpperCase().startsWith(`${correctionMarca}:`);
+                        })
+                        .map((tipo) => (
+                          <option key={tipo.id} value={tipo.id}>
+                            {tipo.nombre.replace(new RegExp(`^${correctionMarca}:\\s*`, 'i'), '')}
+                          </option>
+                        ))}
                     </select>
                   </label>
                   <label>
