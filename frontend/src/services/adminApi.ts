@@ -231,10 +231,14 @@ export const reviewApi = {
       { method: 'PATCH', body: JSON.stringify({ status, observacion }) },
     ),
 
-  updateServiceType: (id: string, tipo_servicio_id: string) =>
+  updateServiceType: (
+    id: string,
+    tipo_servicio_id: string,
+    extra?: { destino?: string; transporte?: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA' },
+  ) =>
     apiFetch<AccountService>(`${BASE}/services/${id}/type`, {
       method: 'PATCH',
-      body: JSON.stringify({ tipo_servicio_id }),
+      body: JSON.stringify({ tipo_servicio_id, ...extra }),
     }),
 
   updateServiceValue: (id: string, valor_cobrado: number) =>

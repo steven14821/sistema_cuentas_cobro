@@ -3,6 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '../../layouts/MainLayout';
 import { reviewApi, type Account, type AccountService } from '../../services/adminApi';
 import { technicianApi, type EstadoServicio, type TipoServicioApi } from '../../services/technicianApi';
+import { lugaresBucaramanga, lugaresCucuta } from '../../components/RegistroFlujoModal';
+
+function normalizeAdmin(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 import { EstadoBadge } from '../../components/EstadoBadge';
 import { formatCOP, nombreMes } from '../../lib/period';
 import {
@@ -80,11 +85,17 @@ export const AccountDetailPage = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [serviceTypeTarget, setServiceTypeTarget] = useState<AccountService | null>(null);
+  const [serviceTypeOrden, setServiceTypeOrden] = useState<OrdenAgrupadaAdmin | null>(null);
   const [serviceTypes, setServiceTypes] = useState<TipoServicioApi[]>([]);
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
   const [savingServiceType, setSavingServiceType] = useState(false);
   const [serviceTypeError, setServiceTypeError] = useState<string | null>(null);
+  const [adminEditMarca, setAdminEditMarca] = useState<string>('SAMSUNG');
+  const [adminEditTraslado, setAdminEditTraslado] = useState(false);
+  const [adminEditTrasladoDestino, setAdminEditTrasladoDestino] = useState('');
+  const [adminEditTrasladoTransporte, setAdminEditTrasladoTransporte] = useState<'MOTO_PROPIA' | 'VEHICULO_EMPRESA'>('MOTO_PROPIA');
+  const [adminEditTrasladoTypeId, setAdminEditTrasladoTypeId] = useState('');
   const [serviceValueTarget, setServiceValueTarget] = useState<AccountService | null>(null);
   const [serviceValueInput, setServiceValueInput] = useState('');
   const [savingServiceValue, setSavingServiceValue] = useState(false);
@@ -157,10 +168,35 @@ export const AccountDetailPage = () => {
     }
   };
 
-  const handleOpenServiceType = async (service: AccountService) => {
+  const handleOpenServiceType = async (service: AccountService, orden?: OrdenAgrupadaAdmin) => {
     setServiceTypeTarget(service);
     setSelectedTypeId(service.tipo_servicio_id);
     setServiceTypeError(null);
+    setServiceTypeOrden(orden ?? null);
+    setAdminEditTraslado(false);
+
+    // Detect brand from current service type name
+    const currentNombre = service.tipo_servicio_nombre ?? '';
+    const prefix = currentNombre.split(':')[0]?.trim().toUpperCase();
+    const marcas = ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'];
+    setAdminEditMarca(marcas.includes(prefix) ? prefix : 'SAMSUNG');
+
+    // Pre-populate traslado destination from current transfer
+    if (orden?.traslado) {
+      const isCuc = account?.tecnico_sede === 'Cucuta';
+      const locs = isCuc ? lugaresCucuta : lugaresBucaramanga;
+      const matchingLoc = locs.find(
+        (l) => normalizeAdmin(l.dbNombre) === normalizeAdmin(orden.traslado!.tipo_servicio_nombre ?? ''),
+      );
+      setAdminEditTrasladoDestino(matchingLoc?.id ?? '');
+      setAdminEditTrasladoTransporte(
+        normalizeAdmin(orden.traslado!.descripcion_especifica ?? '').includes('vehiculo empresa')
+          ? 'VEHICULO_EMPRESA'
+          : 'MOTO_PROPIA',
+      );
+      setAdminEditTrasladoTypeId(orden.traslado.tipo_servicio_id);
+    }
+
     if (serviceTypes.length > 0) return;
     setLoadingServiceTypes(true);
     try {
@@ -179,6 +215,14 @@ export const AccountDetailPage = () => {
     setServiceTypeError(null);
     try {
       await reviewApi.updateServiceType(serviceTypeTarget.id, selectedTypeId);
+      // If traslado section is active and destination was selected
+      if (adminEditTraslado && serviceTypeOrden?.traslado && adminEditTrasladoTypeId) {
+        await reviewApi.updateServiceType(
+          serviceTypeOrden.traslado.id,
+          adminEditTrasladoTypeId,
+          { destino: adminEditTrasladoDestino, transporte: adminEditTrasladoTransporte },
+        );
+      }
       setServiceTypeTarget(null);
       await loadAccount();
     } catch (err) {
@@ -188,9 +232,6 @@ export const AccountDetailPage = () => {
     }
   };
 
-  const availableServiceTypes = serviceTypes.filter(
-    (type) => !type.nombre.toUpperCase().startsWith('TRASLADO'),
-  );
 
   const handleOpenServiceValue = (service: AccountService) => {
     setServiceValueTarget(service);
@@ -705,8 +746,8 @@ export const AccountDetailPage = () => {
 
                             <button
                               type="button"
-                              title="Cambiar tipo de servicio"
-                              onClick={() => void handleOpenServiceType(s)}
+                              title="Editar orden"
+                              onClick={() => void handleOpenServiceType(s, grupo)}
                               style={{
                                 ...actionMiniBtn,
                                 backgroundColor: 'var(--purple-bg)',
@@ -715,7 +756,7 @@ export const AccountDetailPage = () => {
                                 fontWeight: 600,
                               }}
                             >
-                              <Pencil size={13} /> Cambiar tipo
+                              <Pencil size={13} /> Editar orden
                             </button>
 
                             <button
@@ -880,9 +921,9 @@ export const AccountDetailPage = () => {
                       <button
                         type="button"
                         className="admin-service-action change-type"
-                        onClick={() => void handleOpenServiceType(s)}
+                        onClick={() => void handleOpenServiceType(s, grupo)}
                       >
-                        <Pencil size={15} /> Cambiar tipo
+                        <Pencil size={15} /> Editar orden
                       </button>
                       <button
                         type="button"
@@ -1201,61 +1242,186 @@ export const AccountDetailPage = () => {
           </div>
         )}
 
-        {serviceTypeTarget && (
-          <div className="service-type-backdrop">
-            <form className="service-type-modal" onSubmit={handleSaveServiceType}>
-              <div className="service-type-heading">
-                <div>
-                  <p>ORDEN {serviceTypeTarget.numero_orden}</p>
-                  <h2>Cambiar tipo de servicio</h2>
+        {serviceTypeTarget && (() => {
+          const MARCAS = ['SAMSUNG', 'HISENSE', 'HYUNDAI', 'TCL', 'ZURICH'] as const;
+          const isCuc = account?.tecnico_sede === 'Cucuta';
+          const locs = isCuc ? lugaresCucuta : lugaresBucaramanga;
+          const tiposFiltrados = serviceTypes.filter((t) => {
+            if (normalizeAdmin(t.nombre).startsWith('traslado')) return false;
+            return t.nombre.toUpperCase().startsWith(`${adminEditMarca}:`);
+          });
+          const selectedTipo = serviceTypes.find((t) => t.id === selectedTypeId);
+          const noChanges =
+            selectedTypeId === serviceTypeTarget.tipo_servicio_id &&
+            (!adminEditTraslado || !adminEditTrasladoDestino);
+          const inputStyle: React.CSSProperties = {
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid var(--border-strong)',
+            background: 'var(--surface)',
+            color: 'var(--ink)',
+            fontSize: '14px',
+            width: '100%',
+          };
+          return (
+            <div className="service-type-backdrop">
+              <form className="service-type-modal" onSubmit={handleSaveServiceType} style={{ width: 'min(100%, 560px)' }}>
+                <div className="service-type-heading">
+                  <div>
+                    <p>ORDEN {serviceTypeTarget.numero_orden.replace(/^(T-)?(BUC|CUC)-/i, '')}</p>
+                    <h2>Editar orden</h2>
+                  </div>
+                  <button type="button" onClick={() => setServiceTypeTarget(null)} aria-label="Cerrar">×</button>
                 </div>
-                <button type="button" onClick={() => setServiceTypeTarget(null)} aria-label="Cerrar">×</button>
-              </div>
-              <p className="service-type-current">{serviceTypeTarget.tipo_servicio_nombre ?? 'Tipo actual no disponible'}</p>
-              <label className="service-type-label" htmlFor="admin-service-type-select">Nuevo tipo</label>
-              <select
-                id="admin-service-type-select"
-                value={selectedTypeId}
-                onChange={(event) => setSelectedTypeId(event.target.value)}
-                disabled={loadingServiceTypes || savingServiceType}
-                required
-              >
-                <option value="" disabled>{loadingServiceTypes ? 'Cargando tipos…' : 'Selecciona un tipo de servicio'}</option>
-                {availableServiceTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.nombre} — {type.requiere_valor_admin ? 'valor definido por el admin' : formatCOP(Number(type.valor_estandar))}
-                  </option>
-                ))}
-              </select>
-              {selectedTypeId !== serviceTypeTarget.tipo_servicio_id && (
-                <div className="service-type-price-note">
-                  {availableServiceTypes.find((type) => type.id === selectedTypeId)?.requiere_valor_admin ? (
-                    <>
-                      El nuevo tipo no tiene tarifa fija: el valor quedará en <strong>$0</strong> y deberás asignarlo
-                      con <strong>Asignar valor</strong> antes de aprobar.
-                    </>
-                  ) : (
-                    <>
-                      El valor cobrado cambiará de <strong>{formatCOP(serviceTypeTarget.valor_cobrado)}</strong> a{' '}
-                      <strong>{formatCOP(Number(availableServiceTypes.find((type) => type.id === selectedTypeId)?.valor_estandar ?? 0))}</strong>,
-                      según la tarifa estándar del nuevo tipo.
-                    </>
-                  )}
+                <p className="service-type-current">{serviceTypeTarget.tipo_servicio_nombre ?? 'Tipo actual'}</p>
+
+                {/* Brand tabs */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label className="service-type-label">Marca del equipo</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                    {MARCAS.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => { setAdminEditMarca(m); setSelectedTypeId(''); }}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '8px',
+                          border: adminEditMarca === m ? '2px solid var(--blue)' : '1px solid var(--border-strong)',
+                          background: adminEditMarca === m ? 'var(--blue-bg)' : 'var(--surface)',
+                          color: adminEditMarca === m ? 'var(--blue)' : 'var(--ink)',
+                          fontWeight: adminEditMarca === m ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >{m}</button>
+                    ))}
+                  </div>
                 </div>
-              )}
-              {serviceTypeError && <p className="service-type-error" role="alert">{serviceTypeError}</p>}
-              <div className="service-type-actions">
-                <button type="button" onClick={() => setServiceTypeTarget(null)} disabled={savingServiceType}>Cancelar</button>
-                <button
-                  type="submit"
-                  disabled={loadingServiceTypes || savingServiceType || !selectedTypeId || selectedTypeId === serviceTypeTarget.tipo_servicio_id}
-                >
-                  {savingServiceType ? 'Guardando…' : 'Cambiar tipo y tarifa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+
+                {/* Service type select filtered by brand */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label className="service-type-label" htmlFor="admin-service-type-select">
+                    Tipo de servicio ({adminEditMarca})
+                  </label>
+                  <select
+                    id="admin-service-type-select"
+                    value={selectedTypeId}
+                    onChange={(e) => setSelectedTypeId(e.target.value)}
+                    disabled={loadingServiceTypes || savingServiceType}
+                    required
+                    style={inputStyle}
+                  >
+                    <option value="" disabled>
+                      {loadingServiceTypes ? 'Cargando tipos…' : 'Selecciona un tipo de servicio'}
+                    </option>
+                    {tiposFiltrados.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre.replace(new RegExp(`^${adminEditMarca}:\\s*`, 'i'), '')}
+                        {' — '}
+                        {t.requiere_valor_admin ? 'valor por admin' : formatCOP(Number(t.valor_estandar))}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Price change note */}
+                {selectedTypeId && selectedTypeId !== serviceTypeTarget.tipo_servicio_id && (
+                  <div className="service-type-price-note">
+                    {selectedTipo?.requiere_valor_admin ? (
+                      <>El nuevo tipo no tiene tarifa fija: el valor quedará en <strong>$0</strong> y deberás asignarlo con <strong>Asignar valor</strong> antes de aprobar.</>
+                    ) : (
+                      <>El valor cobrado cambiará de <strong>{formatCOP(serviceTypeTarget.valor_cobrado)}</strong> a{' '}
+                      <strong>{formatCOP(Number(selectedTipo?.valor_estandar ?? 0))}</strong>, según la tarifa estándar del nuevo tipo.</>
+                    )}
+                  </div>
+                )}
+
+                {/* Traslado section */}
+                {serviceTypeOrden?.traslado && (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Truck size={15} style={{ color: 'var(--success-text)' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--success-text)' }}>
+                        Traslado: {serviceTypeOrden.traslado.tipo_servicio_nombre ?? 'Traslado'}
+                      </span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        ({formatCOP(serviceTypeOrden.traslado.valor_cobrado)})
+                      </span>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={adminEditTraslado}
+                        onChange={(e) => setAdminEditTraslado(e.target.checked)}
+                        disabled={savingServiceType}
+                      />
+                      Cambiar también el destino del traslado
+                    </label>
+                    {adminEditTraslado && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label className="service-type-label">Nuevo destino</label>
+                          <select
+                            value={adminEditTrasladoDestino}
+                            onChange={(e) => {
+                              const locId = e.target.value;
+                              setAdminEditTrasladoDestino(locId);
+                              const loc = locs.find((l) => l.id === locId);
+                              if (loc) {
+                                const matchingTipo = serviceTypes.find(
+                                  (t) => normalizeAdmin(t.nombre) === normalizeAdmin(loc.dbNombre),
+                                );
+                                setAdminEditTrasladoTypeId(matchingTipo?.id ?? '');
+                              }
+                            }}
+                            required={adminEditTraslado}
+                            disabled={savingServiceType}
+                            style={inputStyle}
+                          >
+                            <option value="">Selecciona destino...</option>
+                            {locs.map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.nombre} — {formatCOP(l.valor)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {isCuc && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label className="service-type-label">Transporte</label>
+                            <select
+                              value={adminEditTrasladoTransporte}
+                              onChange={(e) => setAdminEditTrasladoTransporte(e.target.value as 'MOTO_PROPIA' | 'VEHICULO_EMPRESA')}
+                              disabled={savingServiceType}
+                              style={inputStyle}
+                            >
+                              <option value="MOTO_PROPIA">Moto propia</option>
+                              <option value="VEHICULO_EMPRESA">Vehículo empresa</option>
+                            </select>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {serviceTypeError && <p className="service-type-error" role="alert">{serviceTypeError}</p>}
+                <div className="service-type-actions">
+                  <button type="button" onClick={() => setServiceTypeTarget(null)} disabled={savingServiceType}>Cancelar</button>
+                  <button
+                    type="submit"
+                    disabled={loadingServiceTypes || savingServiceType || !selectedTypeId || noChanges}
+                  >
+                    {savingServiceType ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          );
+        })()}
 
         {serviceValueTarget && (
           <div className="service-type-backdrop">

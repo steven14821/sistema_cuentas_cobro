@@ -296,7 +296,12 @@ export class AdminService {
     });
   }
 
-  async updateServiceType(servicioId: string, tipoServicioId: string, adminId: string) {
+  async updateServiceType(
+    servicioId: string,
+    tipoServicioId: string,
+    adminId: string,
+    extras?: { destino?: string; transporte?: 'MOTO_PROPIA' | 'VEHICULO_EMPRESA' },
+  ) {
     return this.prisma.$transaction(async (tx: any) => {
       const servicio = await tx.servicios.findUnique({
         where: { id: servicioId },
@@ -315,18 +320,30 @@ export class AdminService {
       if (!nuevoTipo?.activo) {
         throw new BadRequestException('El tipo de servicio no existe o está inactivo.');
       }
-      if (servicio.tipo_servicio_id === tipoServicioId) {
-        return this.serializeServicio(servicio);
-      }
 
       const valorAnterior = Number(servicio.valor_cobrado);
       const valorNuevo = nuevoTipo.requiere_valor_admin ? 0 : Number(nuevoTipo.valor_estandar);
+
+      // Build update data — for transfers include descripcion_especifica
+      const esTraslado = (servicio.numero_orden as string).startsWith('T-');
+      const extraData: Record<string, unknown> = {};
+      if (esTraslado && extras?.destino && extras?.transporte) {
+        const destNombre = (nuevoTipo.nombre as string).replace(/^TRASLADO( CUC)?:\s*/i, '');
+        const transportLabel = extras.transporte === 'MOTO_PROPIA' ? 'Moto propia' : 'Vehículo empresa';
+        extraData.descripcion_especifica = `${transportLabel} — ${destNombre}`;
+      }
+
+      if (servicio.tipo_servicio_id === tipoServicioId && Object.keys(extraData).length === 0) {
+        return this.serializeServicio(servicio);
+      }
+
       const updated = await tx.servicios.update({
         where: { id: servicioId },
         data: {
           tipo_servicio_id: tipoServicioId,
           valor_cobrado: valorNuevo,
           updated_at: new Date(),
+          ...extraData,
         },
         include: { tipos_servicio: true },
       });
@@ -337,7 +354,7 @@ export class AdminService {
           usuario_admin_id: adminId,
           estado_anterior: servicio.estado,
           estado_nuevo: servicio.estado,
-          observacion: `Tipo cambiado de "${servicio.tipos_servicio?.nombre ?? 'Sin tipo'}" a "${nuevoTipo.nombre}". Valor actualizado de ${valorAnterior} a ${valorNuevo}.`,
+          observacion: `Tipo cambiado de "${servicio.tipos_servicio?.nombre ?? 'Sin tipo'}" a "${nuevoTipo.nombre}". Valor actualizado de ${valorAnterior} a ${valorNuevo}.${extraData.descripcion_especifica ? ` Destino: ${String(extraData.descripcion_especifica)}.` : ''}`,
           fecha_accion: new Date(),
         },
       });
@@ -345,6 +362,10 @@ export class AdminService {
         where: { id: servicio.cuenta_cobro_id },
         data: { firma_tecnico: null, fecha_firma: null },
       });
+
+      if (!esTraslado) {
+        await this.revalueLinkedTransfer(tx, servicio, valorAnterior, valorNuevo, adminId);
+      }
 
       return this.serializeServicio(updated);
     });

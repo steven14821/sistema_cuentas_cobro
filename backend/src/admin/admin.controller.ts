@@ -38,7 +38,10 @@ export class AdminController {
     @Param('id') id: string,
     @Body() body: UpdateServiceTypeDto,
   ) {
-    return this.adminService.updateServiceType(id, body.tipo_servicio_id, req.user!.id);
+    return this.adminService.updateServiceType(id, body.tipo_servicio_id, req.user!.id, {
+      destino: body.destino,
+      transporte: body.transporte,
+    });
   }
 
   @Patch('services/:id/value')

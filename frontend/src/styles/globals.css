@@ -553,7 +553,7 @@ body,
 .service-type-modal {
   display: grid;
   gap: 12px;
-  width: min(100%, 480px);
+  width: min(100%, 560px);
   padding: 22px;
   border: 1px solid var(--border);
   border-radius: 18px;
