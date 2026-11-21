@@ -348,7 +348,7 @@ async function bootstrap() {
     { nombre: 'ZURICH: Diagnostico aire split', valor: 20000 },
     { nombre: 'ZURICH: Reparación', valor: 0, requiere_valor_admin: true },
 
-    // Hyundai y TCL: catálogo exclusivo para TV.
+    // Hyundai y TCL: catálogo para TV.
     ...(['HYUNDAI', 'TCL'] as const).flatMap((marca) =>
       [
         { servicio: 'Taller TV', valor: 18000 },
@@ -379,6 +379,11 @@ async function bootstrap() {
         valor,
       })),
     ),
+
+    // TCL: Aire ROWA
+    { nombre: 'TCL: Diagnostico Aire ROWA', valor: 20000 },
+    { nombre: 'TCL: Carga de gas Aire ROWA', valor: 80000 },
+    { nombre: 'TCL: Reparacion IH Aire ROWA', valor: 35000 },
   ];
 
   console.log(`📦 Upsert del catálogo canónico (${tariffs.length} nombres)...`);
