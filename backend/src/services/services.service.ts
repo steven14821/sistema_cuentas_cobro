@@ -677,8 +677,13 @@ export class ServicesService {
     }
 
     await this.prisma.$transaction(async (tx: any) => {
+      // Solo pasan a 'Pendiente' los servicios que fueron observados o rechazados
+      // Los que ya estaban 'Aprobado' se conservan aprobados
       await tx.servicios.updateMany({
-        where: { cuenta_cobro_id: cuentaId },
+        where: {
+          cuenta_cobro_id: cuentaId,
+          estado: { in: ['Observado', 'Rechazado'] },
+        },
         data: { estado: 'Pendiente', updated_at: new Date() },
       });
       await tx.cuentas_cobro.update({

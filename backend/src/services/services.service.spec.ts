@@ -894,7 +894,7 @@ describe('ServicesService', () => {
   });
 
   describe('submitAccountCorrection', () => {
-    it('devuelve los servicios y la cuenta a pendiente para una nueva revisión', async () => {
+    it('devuelve los servicios observados/rechazados y la cuenta a pendiente para una nueva revisión', async () => {
       prisma.cuentas_cobro.findFirst.mockResolvedValue({
         id: 'cuenta-1',
         usuario_id: 'u1',
@@ -906,7 +906,10 @@ describe('ServicesService', () => {
       const result = await service.submitAccountCorrection('u1', 'cuenta-1');
 
       expect(prisma.servicios.updateMany).toHaveBeenCalledWith({
-        where: { cuenta_cobro_id: 'cuenta-1' },
+        where: {
+          cuenta_cobro_id: 'cuenta-1',
+          estado: { in: ['Observado', 'Rechazado'] },
+        },
         data: expect.objectContaining({ estado: 'Pendiente' }),
       });
       expect(prisma.cuentas_cobro.update).toHaveBeenCalledWith({
