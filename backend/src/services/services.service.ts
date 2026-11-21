@@ -52,6 +52,21 @@ export class ServicesService {
     usuarioId: string,
     hoy = getColombiaToday(),
   ) {
+    // Si el técnico tiene una cuenta radicada devuelta para corrección (Observado/Rechazado),
+    // ese es el período sobre el cual debe operar prioritariamente.
+    const cuentaEnCorreccion = await this.prisma.cuentas_cobro.findFirst({
+      where: {
+        usuario_id: usuarioId,
+        radicada: true,
+        estado: { in: ['Observado', 'Rechazado'] },
+      },
+      orderBy: [{ anio: 'desc' }, { mes: 'desc' }],
+      select: { mes: true, anio: true },
+    });
+    if (cuentaEnCorreccion) {
+      return { mes: cuentaEnCorreccion.mes, anio: cuentaEnCorreccion.anio };
+    }
+
     if (isVentanaAbierta(hoy.dia)) return getPeriodoARadicar(hoy);
     const excepcion = await this.prisma.excepciones_carga.findFirst({
       where: {
@@ -692,7 +707,21 @@ export class ServicesService {
       orderBy: { fecha_vencimiento: 'desc' },
     });
 
-    const periodo = getPeriodoConExcepcion(hoy, !!excepcion);
+    // Si el técnico tiene una cuenta en corrección (Observado/Rechazado), se le presenta esa cuenta
+    // para que pueda corregir sus órdenes de inmediato sin importar la fecha del mes.
+    const cuentaEnCorreccion = await this.prisma.cuentas_cobro.findFirst({
+      where: {
+        usuario_id: usuarioId,
+        radicada: true,
+        estado: { in: ['Observado', 'Rechazado'] },
+      },
+      orderBy: [{ anio: 'desc' }, { mes: 'desc' }],
+      select: { mes: true, anio: true },
+    });
+
+    const periodo = cuentaEnCorreccion
+      ? { mes: cuentaEnCorreccion.mes, anio: cuentaEnCorreccion.anio }
+      : getPeriodoConExcepcion(hoy, !!excepcion);
     const cuenta = await this.prisma.cuentas_cobro.findUnique({
       where: {
         usuario_id_mes_anio: {
@@ -717,7 +746,8 @@ export class ServicesService {
     });
 
     const serializedCuenta = cuenta ? this.serializeCuenta(cuenta) : null;
-    const puedeEditar = (ventanaAbierta || !!excepcion) && (!serializedCuenta || !serializedCuenta.radicada);
+    const esCuentaEnCorreccion = !!serializedCuenta && serializedCuenta.radicada && ['Observado', 'Rechazado'].includes(serializedCuenta.estado ?? '');
+    const puedeEditar = esCuentaEnCorreccion || ((ventanaAbierta || !!excepcion) && (!serializedCuenta || !serializedCuenta.radicada));
 
     return {
       periodo,
