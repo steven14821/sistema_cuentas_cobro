@@ -153,10 +153,39 @@ export class AdminService {
     if (!servicio) {
       throw new NotFoundException('Servicio no encontrado');
     }
+
+    const valorActual = Number(servicio.valor_cobrado);
     const esAprobadoSinPago = status === 'Aprobado' && !!observacion?.startsWith('[SIN PAGO]');
+
+    // Si se re-aprueba normalmente un servicio que fue aprobado sin pago (valor=0), restaurar valor anterior
+    let valorARestaurar: number | undefined;
+    if (status === 'Aprobado' && !esAprobadoSinPago && valorActual === 0) {
+      const lastSinPagoAudit = await this.prisma.auditoria_servicios.findFirst({
+        where: { servicio_id: servicioId, observacion: { startsWith: '[SIN PAGO]' } },
+        orderBy: { fecha_accion: 'desc' },
+      });
+      if (lastSinPagoAudit?.observacion) {
+        const prevMatch = lastSinPagoAudit.observacion.match(/\[_prev:(\d+(?:\.\d+)?)\]/);
+        if (prevMatch) valorARestaurar = Number(prevMatch[1]);
+      }
+      // Fallback: usar valor estándar del tipo si no requiere asignación manual
+      if (valorARestaurar === undefined && !servicio.tipos_servicio?.requiere_valor_admin) {
+        valorARestaurar = Number(servicio.tipos_servicio?.valor_estandar ?? 0) || undefined;
+      }
+      // Para que assertValorAsignado pase, actualizar valor en memoria temporalmente
+      if (valorARestaurar !== undefined && valorARestaurar > 0) {
+        (servicio as any).valor_cobrado = valorARestaurar;
+      }
+    }
+
     if (status === 'Aprobado' && !esAprobadoSinPago) {
       this.assertValorAsignado(servicio);
     }
+
+    // Al guardar sin pago: anexar valor anterior como metadato interno [_prev:NNN]
+    const obsParaAudit = esAprobadoSinPago
+      ? `${observacion ?? ''} [_prev:${valorActual}]`
+      : (observacion ?? '');
 
     await this.prisma.auditoria_servicios.create({
       data: {
@@ -164,7 +193,7 @@ export class AdminService {
         usuario_admin_id: adminId,
         estado_anterior: servicio.estado as any,
         estado_nuevo: status,
-        observacion: observacion ?? '',
+        observacion: obsParaAudit,
         fecha_accion: new Date(),
       },
     });
@@ -172,6 +201,8 @@ export class AdminService {
     const updateData: any = { estado: status, updated_at: new Date() };
     if (esAprobadoSinPago) {
       updateData.valor_cobrado = 0;
+    } else if (valorARestaurar !== undefined) {
+      updateData.valor_cobrado = valorARestaurar;
     }
 
     const updated = await this.prisma.servicios.update({

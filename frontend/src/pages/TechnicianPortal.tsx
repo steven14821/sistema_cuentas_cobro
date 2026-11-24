@@ -1022,7 +1022,7 @@ export const TechnicianPortal = () => {
                                     backgroundColor: 'var(--warning-bg)',
                                     marginRight: '4px',
                                   }}>Aprobado sin pago</span>
-                                  {g.servicioObservado.ultima_observacion.replace(/^\[SIN PAGO\]\s*/, '')}
+                                  {g.servicioObservado.ultima_observacion.replace(/^\[SIN PAGO\]\s*/, '').replace(/\s*\[_prev:\d+(?:\.\d+)?\]\s*$/, '')}
                                 </>
                               ) : (
                                 `Observación: ${g.servicioObservado.ultima_observacion}`
@@ -1089,7 +1089,7 @@ export const TechnicianPortal = () => {
                         {g.servicioObservado.ultima_observacion.startsWith('[SIN PAGO]') ? (
                           <>
                             <strong style={{ color: 'var(--warning-text)' }}>[Aprobado sin pago]:</strong>{' '}
-                            {g.servicioObservado.ultima_observacion.replace(/^\[SIN PAGO\]\s*/, '')}
+                            {g.servicioObservado.ultima_observacion.replace(/^\[SIN PAGO\]\s*/, '').replace(/\s*\[_prev:\d+(?:\.\d+)?\]\s*$/, '')}
                           </>
                         ) : (
                           <>

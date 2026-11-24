@@ -1676,14 +1676,19 @@ export const AccountDetailPage = () => {
               <form onSubmit={handleSubmitAction}>
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                    Observación {target.action === 'Aprobado' ? '(opcional)' : '(recomendada)'}
+                    {target.isAprobadoSinPago
+                      ? 'Comentario para el técnico (obligatorio)'
+                      : `Observación ${target.action === 'Aprobado' ? '(opcional)' : '(recomendada)'}`}
                   </label>
                   <textarea
                     rows={3}
                     value={observacion}
                     onChange={(e) => setObservacion(e.target.value)}
+                    required={target.isAprobadoSinPago}
                     placeholder={
-                      target.action === 'Aprobado'
+                      target.isAprobadoSinPago
+                        ? 'Explica por qué este servicio no genera pago...'
+                        : target.action === 'Aprobado'
                         ? 'Ej: Servicio verificado y conforme.'
                         : 'Indica el motivo de la observación o rechazo...'
                     }
@@ -1734,7 +1739,7 @@ export const AccountDetailPage = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || (!!target.isAprobadoSinPago && !observacion.trim())}
                     style={{
                       flex: 1,
                       padding: '10px',

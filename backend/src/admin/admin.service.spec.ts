@@ -17,6 +17,7 @@ function makePrisma() {
       count: vi.fn(),
       create: vi.fn(),
       deleteMany: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
     },
     tipos_servicio: {
       findUnique: vi.fn(),
