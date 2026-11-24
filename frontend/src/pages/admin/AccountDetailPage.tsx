@@ -1360,29 +1360,143 @@ export const AccountDetailPage = () => {
 
                 {/* Traslado section */}
                 {serviceTypeOrden?.traslado && (
-                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Truck size={15} style={{ color: 'var(--success-text)' }} />
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--success-text)' }}>
-                        Traslado: {serviceTypeOrden.traslado.tipo_servicio_nombre ?? 'Traslado'}
-                      </span>
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                        ({formatCOP(serviceTypeOrden.traslado.valor_cobrado)})
+                  <div
+                    style={{
+                      border: '1px solid var(--border)',
+                      borderRadius: '12px',
+                      background: 'var(--surface-sunken, rgba(0, 0, 0, 0.02))',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
+                            background: 'rgba(34, 197, 94, 0.12)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Truck size={16} style={{ color: 'var(--success-text)' }} />
+                        </div>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted, #888)', fontWeight: 700 }}>
+                            Traslado asociado
+                          </p>
+                          <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>
+                            {serviceTypeOrden.traslado.tipo_servicio_nombre ?? 'Traslado'}
+                          </h4>
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color: adminDeleteTraslado ? 'var(--danger-text)' : 'var(--success-text)',
+                          textDecoration: adminDeleteTraslado ? 'line-through' : 'none',
+                          background: 'var(--surface)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        {formatCOP(serviceTypeOrden.traslado.valor_cobrado)}
                       </span>
                     </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={adminEditTraslado}
-                        onChange={(e) => { setAdminEditTraslado(e.target.checked); if (e.target.checked) setAdminDeleteTraslado(false); }}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '8px' }}>
+                      {/* Opcion Modificar */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !adminEditTraslado;
+                          setAdminEditTraslado(next);
+                          if (next) setAdminDeleteTraslado(false);
+                        }}
                         disabled={savingServiceType}
-                      />
-                      Cambiar también el destino del traslado
-                    </label>
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${adminEditTraslado ? 'var(--brand-primary, #3b82f6)' : 'var(--border)'}`,
+                          background: adminEditTraslado ? 'rgba(59, 130, 246, 0.08)' : 'var(--surface)',
+                          color: adminEditTraslado ? 'var(--brand-primary, #2563eb)' : 'var(--ink)',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ fontSize: '14px' }}>🔄</span>
+                        <div>
+                          <div>Cambiar destino</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted, #666)', fontWeight: 400 }}>
+                            Actualizar lugar o transporte
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Opcion Eliminar */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !adminDeleteTraslado;
+                          setAdminDeleteTraslado(next);
+                          if (next) setAdminEditTraslado(false);
+                        }}
+                        disabled={savingServiceType}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${adminDeleteTraslado ? 'var(--danger-text, #ef4444)' : 'var(--border)'}`,
+                          background: adminDeleteTraslado ? 'var(--danger-bg, rgba(239, 68, 68, 0.08))' : 'var(--surface)',
+                          color: adminDeleteTraslado ? 'var(--danger-text, #dc2626)' : 'var(--ink)',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <Trash2 size={15} style={{ color: adminDeleteTraslado ? 'var(--danger-text)' : 'var(--text-muted, #888)' }} />
+                        <div>
+                          <div>Eliminar traslado</div>
+                          <div style={{ fontSize: '10px', color: adminDeleteTraslado ? 'var(--danger-text)' : 'var(--text-muted, #666)', fontWeight: 400 }}>
+                            Quitar de esta orden
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Subformulario de Edición */}
                     {adminEditTraslado && (
-                      <>
+                      <div
+                        style={{
+                          marginTop: '2px',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <label className="service-type-label">Nuevo destino</label>
+                          <label className="service-type-label" style={{ fontSize: '12px', fontWeight: 600 }}>Nuevo destino de traslado</label>
                           <select
                             value={adminEditTrasladoDestino}
                             onChange={(e) => {
@@ -1410,7 +1524,7 @@ export const AccountDetailPage = () => {
                         </div>
                         {isCuc && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label className="service-type-label">Transporte</label>
+                            <label className="service-type-label" style={{ fontSize: '12px', fontWeight: 600 }}>Medio de transporte</label>
                             <select
                               value={adminEditTrasladoTransporte}
                               onChange={(e) => setAdminEditTrasladoTransporte(e.target.value as 'MOTO_PROPIA' | 'VEHICULO_EMPRESA')}
@@ -1422,21 +1536,28 @@ export const AccountDetailPage = () => {
                             </select>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
-                    {/* Eliminar traslado */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={adminDeleteTraslado}
-                        onChange={(e) => { setAdminDeleteTraslado(e.target.checked); if (e.target.checked) setAdminEditTraslado(false); }}
-                        disabled={savingServiceType}
-                      />
-                      <span style={{ color: 'var(--danger-text)', fontWeight: 600 }}>Eliminar el traslado de esta orden</span>
-                    </label>
+
+                    {/* Mensaje de Confirmación al Eliminar */}
                     {adminDeleteTraslado && (
-                      <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger-text)', fontSize: '12px' }}>
-                        Se eliminará el traslado permanentemente. El tipo del servicio sí cambia si seleccionas uno nuevo.
+                      <div
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          background: 'var(--danger-bg, rgba(239, 68, 68, 0.1))',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          color: 'var(--danger-text)',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <Trash2 size={16} />
+                        <span>
+                          El traslado será <strong>eliminado permanentemente</strong> al hacer clic en Guardar cambios.
+                        </span>
                       </div>
                     )}
                   </div>
