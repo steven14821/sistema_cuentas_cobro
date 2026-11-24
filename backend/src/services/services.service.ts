@@ -740,7 +740,12 @@ export class ServicesService {
           include: {
             tipos_servicio: true,
             auditoria_servicios: {
-              where: { estado_nuevo: { in: ['Observado', 'Rechazado'] } },
+              where: {
+                OR: [
+                  { estado_nuevo: { in: ['Observado', 'Rechazado'] } },
+                  { observacion: { startsWith: '[SIN PAGO]' } },
+                ],
+              },
               orderBy: { fecha_accion: 'desc' },
               take: 1,
             },
@@ -899,7 +904,12 @@ export class ServicesService {
           include: {
             tipos_servicio: true,
             auditoria_servicios: {
-              where: { estado_nuevo: { in: ['Observado', 'Rechazado'] } },
+              where: {
+                OR: [
+                  { estado_nuevo: { in: ['Observado', 'Rechazado'] } },
+                  { observacion: { startsWith: '[SIN PAGO]' } },
+                ],
+              },
               orderBy: { fecha_accion: 'desc' },
               take: 1,
             },

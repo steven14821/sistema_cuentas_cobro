@@ -482,7 +482,7 @@ export const TechnicianPortal = () => {
         }
       }
 
-      if (['Observado', 'Rechazado'].includes(s.estado)) {
+      if (['Observado', 'Rechazado'].includes(s.estado) || s.ultima_observacion?.startsWith('[SIN PAGO]')) {
         grupos[cleanNum].servicioObservado = s;
       }
 
@@ -527,16 +527,20 @@ export const TechnicianPortal = () => {
       estado: radicada ? (cuenta?.estado ?? 'Pendiente') : 'Borrador',
       firmaTecnico: cuenta?.firma_tecnico,
       fechaFirma: cuenta?.fecha_firma,
-      servicios: ordenesAgrupadas.map((o) => ({
-        orden: o.numeroOrden,
-        tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
-        descripcion: [
-          o.servicioPrincipal.descripcion_especifica,
-          o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
-        ].filter(Boolean).join(' · '),
-        valor: o.totalValor,
-        porDefinir: servicioSinValorAdmin(o.servicioPrincipal),
-      })),
+      servicios: ordenesAgrupadas.map((o) => {
+        const noPaga = o.totalValor === 0 || !!o.servicioPrincipal.ultima_observacion?.startsWith('[SIN PAGO]');
+        return {
+          orden: o.numeroOrden,
+          tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
+          descripcion: [
+            o.servicioPrincipal.descripcion_especifica,
+            o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
+          ].filter(Boolean).join(' · '),
+          valor: o.totalValor,
+          porDefinir: servicioSinValorAdmin(o.servicioPrincipal),
+          noPaga,
+        };
+      }),
       totalPorDefinir: hayValorPorDefinir,
     });
   };
@@ -579,6 +583,7 @@ export const TechnicianPortal = () => {
         descripcion: o.desc.join(' · '),
         valor: o.valor,
         porDefinir: o.porDefinir,
+        noPaga: o.valor === 0,
       })),
       totalPorDefinir: (c.servicios ?? []).some(servicioSinValorAdmin),
     });
@@ -1002,8 +1007,26 @@ export const TechnicianPortal = () => {
                         <td style={{ padding: '16px 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '280px' }}>
                           {g.servicioPrincipal.descripcion_especifica || '—'}
                           {g.servicioObservado?.ultima_observacion && (
-                            <div style={{ marginTop: 6, color: 'var(--warning-text)', fontSize: 12, fontWeight: 600 }}>
-                              Observación: {g.servicioObservado.ultima_observacion}
+                            <div style={{
+                              marginTop: 6,
+                              color: g.servicioObservado.ultima_observacion.startsWith('[SIN PAGO]') ? 'var(--warning-text)' : 'var(--warning-text)',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}>
+                              {g.servicioObservado.ultima_observacion.startsWith('[SIN PAGO]') ? (
+                                <>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: 'var(--warning-bg)',
+                                    marginRight: '4px',
+                                  }}>Aprobado sin pago</span>
+                                  {g.servicioObservado.ultima_observacion.replace(/^\[SIN PAGO\]\s*/, '')}
+                                </>
+                              ) : (
+                                `Observación: ${g.servicioObservado.ultima_observacion}`
+                              )}
                             </div>
                           )}
                         </td>
@@ -1062,7 +1085,18 @@ export const TechnicianPortal = () => {
                     {g.traslado && <div className="order-card-transfer"><Truck size={14} /> {g.traslado.descripcion_especifica ?? 'Traslado incluido'}</div>}
                     <p className="order-card-description">{g.servicioPrincipal.descripcion_especifica || 'Sin descripción'}</p>
                     {g.servicioObservado?.ultima_observacion && (
-                      <p className="order-card-observation"><strong>Observación:</strong> {g.servicioObservado.ultima_observacion}</p>
+                      <p className="order-card-observation">
+                        {g.servicioObservado.ultima_observacion.startsWith('[SIN PAGO]') ? (
+                          <>
+                            <strong style={{ color: 'var(--warning-text)' }}>[Aprobado sin pago]:</strong>{' '}
+                            {g.servicioObservado.ultima_observacion.replace(/^\[SIN PAGO\]\s*/, '')}
+                          </>
+                        ) : (
+                          <>
+                            <strong>Observación:</strong> {g.servicioObservado.ultima_observacion}
+                          </>
+                        )}
+                      </p>
                     )}
                     <div className="order-card-actions">
                       {puedeEditar && !radicada && (

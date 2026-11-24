@@ -153,7 +153,8 @@ export class AdminService {
     if (!servicio) {
       throw new NotFoundException('Servicio no encontrado');
     }
-    if (status === 'Aprobado') {
+    const esAprobadoSinPago = status === 'Aprobado' && !!observacion?.startsWith('[SIN PAGO]');
+    if (status === 'Aprobado' && !esAprobadoSinPago) {
       this.assertValorAsignado(servicio);
     }
 
@@ -168,9 +169,14 @@ export class AdminService {
       },
     });
 
+    const updateData: any = { estado: status, updated_at: new Date() };
+    if (esAprobadoSinPago) {
+      updateData.valor_cobrado = 0;
+    }
+
     const updated = await this.prisma.servicios.update({
       where: { id: servicioId },
-      data: { estado: status, updated_at: new Date() },
+      data: updateData,
     });
 
     const cuentaAprobada = await this.recomputeCuentaEstado(updated.cuenta_cobro_id);
@@ -182,6 +188,45 @@ export class AdminService {
       ...this.serializeServicio(updated),
       ...(emailNotification ? { email_notification: emailNotification } : {}),
     };
+  }
+
+  async deleteService(servicioId: string, adminId: string) {
+    return this.prisma.$transaction(async (tx: any) => {
+      const servicio = await tx.servicios.findUnique({
+        where: { id: servicioId },
+        include: { cuentas_cobro: true, tipos_servicio: true },
+      });
+      if (!servicio) {
+        throw new NotFoundException('Servicio no encontrado.');
+      }
+      if (!servicio.cuentas_cobro?.radicada) {
+        throw new BadRequestException('Solo se pueden eliminar traslados de cuentas radicadas.');
+      }
+
+      await tx.auditoria_servicios.create({
+        data: {
+          servicio_id: servicioId,
+          usuario_admin_id: adminId,
+          estado_anterior: servicio.estado as any,
+          estado_nuevo: servicio.estado as any,
+          observacion: `Servicio/Traslado eliminado por el administrador (${servicio.tipos_servicio?.nombre ?? servicio.numero_orden}).`,
+          fecha_accion: new Date(),
+        },
+      });
+
+      await tx.servicios.delete({
+        where: { id: servicioId },
+      });
+
+      await tx.cuentas_cobro.update({
+        where: { id: servicio.cuenta_cobro_id },
+        data: { firma_tecnico: null, fecha_firma: null },
+      });
+
+      await this.recomputeCuentaEstado(servicio.cuenta_cobro_id);
+
+      return { deleted: true };
+    });
   }
 
   private assertValorAsignado(servicio: any) {

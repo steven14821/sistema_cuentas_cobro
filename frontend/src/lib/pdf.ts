@@ -10,6 +10,7 @@ export interface ServicioPdf {
   descripcion: string;
   valor: number;
   porDefinir?: boolean;
+  noPaga?: boolean;
 }
 
 export interface DatosCobroPdf {
@@ -177,7 +178,10 @@ export function buildCuentaPdf(cuenta: CuentaPdf): jsPDF {
     { content: s.orden },
     { content: s.tipo || '—' },
     { content: s.descripcion || '—' },
-    { content: s.porDefinir ? POR_DEFINIR : formatMonto(s.valor), styles: { halign: 'right' as const } },
+    {
+      content: s.noPaga ? 'No paga' : s.porDefinir ? POR_DEFINIR : formatMonto(s.valor),
+      styles: { halign: 'right' as const, ...(s.noPaga ? { fontStyle: 'bold' as const, textColor: [180, 50, 50] as [number, number, number] } : {}) },
+    },
   ]);
 
   // Fila de Total

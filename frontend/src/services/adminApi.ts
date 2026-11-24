@@ -247,6 +247,11 @@ export const reviewApi = {
       body: JSON.stringify({ valor_cobrado }),
     }),
 
+  deleteService: (id: string) =>
+    apiFetch<{ deleted: boolean }>(`${BASE}/services/${id}`, {
+      method: 'DELETE',
+    }),
+
   getAccounts: (params?: { mes?: number; anio?: number; estado?: EstadoServicio; usuario_id?: string }) => {
     const qs = new URLSearchParams();
     if (params?.mes) qs.set('mes', String(params.mes));

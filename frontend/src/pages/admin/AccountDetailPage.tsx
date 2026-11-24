@@ -26,6 +26,7 @@ import {
   X,
   Pencil,
   DollarSign,
+  Trash2,
 } from 'lucide-react';
 
 interface OrdenAgrupadaAdmin {
@@ -79,6 +80,7 @@ export const AccountDetailPage = () => {
     title: string;
     subtitle?: string;
     secondaryId?: string;
+    isAprobadoSinPago?: boolean;
   } | null>(null);
   const [observacion, setObservacion] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +95,7 @@ export const AccountDetailPage = () => {
   const [serviceTypeError, setServiceTypeError] = useState<string | null>(null);
   const [adminEditMarca, setAdminEditMarca] = useState<string>('SAMSUNG');
   const [adminEditTraslado, setAdminEditTraslado] = useState(false);
+  const [adminDeleteTraslado, setAdminDeleteTraslado] = useState(false);
   const [adminEditTrasladoDestino, setAdminEditTrasladoDestino] = useState('');
   const [adminEditTrasladoTransporte, setAdminEditTrasladoTransporte] = useState<'MOTO_PROPIA' | 'VEHICULO_EMPRESA'>('MOTO_PROPIA');
   const [adminEditTrasladoTypeId, setAdminEditTrasladoTypeId] = useState('');
@@ -126,8 +129,9 @@ export const AccountDetailPage = () => {
     title: string,
     subtitle?: string,
     secondaryId?: string,
+    isAprobadoSinPago?: boolean,
   ) => {
-    setTarget({ kind, id: targetId, action, title, subtitle, secondaryId });
+    setTarget({ kind, id: targetId, action, title, subtitle, secondaryId, isAprobadoSinPago });
     setObservacion('');
     setActionError(null);
     setActionNotice(null);
@@ -141,15 +145,19 @@ export const AccountDetailPage = () => {
     setActionError(null);
     try {
       let notificationStatus: 'sent' | 'not_configured' | 'failed' | undefined;
+      const obsTexto = target.isAprobadoSinPago
+        ? `[SIN PAGO] ${observacion.trim()}`
+        : observacion.trim();
+
       if (target.kind === 'service') {
-        const promises = [reviewApi.updateServiceStatus(target.id, target.action, observacion.trim())];
+        const promises = [reviewApi.updateServiceStatus(target.id, target.action, obsTexto)];
         if (target.secondaryId && target.secondaryId !== target.id) {
-          promises.push(reviewApi.updateServiceStatus(target.secondaryId, target.action, observacion.trim()));
+          promises.push(reviewApi.updateServiceStatus(target.secondaryId, target.action, obsTexto));
         }
         const results = await Promise.all(promises);
         notificationStatus = results.find((result) => result.email_notification)?.email_notification?.status;
       } else {
-        const result = await reviewApi.updateAccountStatus(target.id, target.action, observacion.trim());
+        const result = await reviewApi.updateAccountStatus(target.id, target.action, obsTexto);
         notificationStatus = result.email_notification?.status;
       }
       setTarget(null);
@@ -174,6 +182,7 @@ export const AccountDetailPage = () => {
     setServiceTypeError(null);
     setServiceTypeOrden(orden ?? null);
     setAdminEditTraslado(false);
+    setAdminDeleteTraslado(false);
 
     // Detect brand from current service type name
     const currentNombre = service.tipo_servicio_nombre ?? '';
@@ -215,8 +224,10 @@ export const AccountDetailPage = () => {
     setServiceTypeError(null);
     try {
       await reviewApi.updateServiceType(serviceTypeTarget.id, selectedTypeId);
-      // If traslado section is active and destination was selected
-      if (adminEditTraslado && serviceTypeOrden?.traslado && adminEditTrasladoTypeId) {
+      // Handle traslado changes
+      if (adminDeleteTraslado && serviceTypeOrden?.traslado) {
+        await reviewApi.deleteService(serviceTypeOrden.traslado.id);
+      } else if (adminEditTraslado && serviceTypeOrden?.traslado && adminEditTrasladoTypeId) {
         await reviewApi.updateServiceType(
           serviceTypeOrden.traslado.id,
           adminEditTrasladoTypeId,
@@ -317,15 +328,19 @@ export const AccountDetailPage = () => {
       estado: account.estado ?? 'Pendiente',
       firmaTecnico: account.firma_tecnico,
       fechaFirma: account.fecha_firma,
-      servicios: ordenesAgrupadas.map((o) => ({
-        orden: o.numeroOrden,
-        tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
-        descripcion: [
-          o.servicioPrincipal.descripcion_especifica,
-          o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
-        ].filter(Boolean).join(' · '),
-        valor: o.totalValor,
-      })),
+      servicios: ordenesAgrupadas.map((o) => {
+        const noPaga = o.totalValor === 0 || (o.servicioPrincipal.auditoria ?? []).some((a) => a.observacion?.startsWith('[SIN PAGO]'));
+        return {
+          orden: o.numeroOrden,
+          tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
+          descripcion: [
+            o.servicioPrincipal.descripcion_especifica,
+            o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
+          ].filter(Boolean).join(' · '),
+          valor: o.totalValor,
+          noPaga,
+        };
+      }),
     });
   };
 
@@ -808,26 +823,27 @@ export const AccountDetailPage = () => {
 
                             <button
                               type="button"
-                              title="Observar orden"
+                              title="Aprobar sin pago"
                               onClick={() =>
                                 handleOpenAction(
                                   'service',
                                   s.id,
-                                  'Observado',
-                                  `Observar ${grupo.numeroOrden}`,
-                                  'Ingresa el motivo u observación para el técnico.',
+                                  'Aprobado',
+                                  `Aprobar sin pago: ${grupo.numeroOrden}`,
+                                  'Este servicio no se pagará ($0). Ingresa el comentario explicativo para el técnico:',
                                   grupo.traslado?.id,
+                                  true,
                                 )
                               }
                               style={{
                                 ...actionMiniBtn,
-                                backgroundColor: grupo.estado === 'Observado' ? 'var(--warning-bg)' : 'var(--warning-bg)',
+                                backgroundColor: (s.auditoria ?? []).some((a) => a.observacion?.startsWith('[SIN PAGO]')) ? 'var(--warning-bg)' : 'var(--warning-bg)',
                                 color: 'var(--warning-text)',
                                 borderColor: 'var(--warning-border)',
-                                fontWeight: grupo.estado === 'Observado' ? 700 : 500,
+                                fontWeight: (s.auditoria ?? []).some((a) => a.observacion?.startsWith('[SIN PAGO]')) ? 700 : 500,
                               }}
                             >
-                              <AlertTriangle size={13} /> Observar
+                              <AlertTriangle size={13} /> Aprobado sin pago
                             </button>
 
                             <button
@@ -957,17 +973,19 @@ export const AccountDetailPage = () => {
                       <button
                         type="button"
                         className="admin-service-action observe"
-                        style={grupo.estado === 'Observado' ? { color: statusColor, backgroundColor: 'var(--warning-bg)', borderColor: 'var(--warning-border)' } : undefined}
+                        title="Aprobar sin pago"
+                        style={(s.auditoria ?? []).some((a) => a.observacion?.startsWith('[SIN PAGO]')) ? { color: statusColor, backgroundColor: 'var(--warning-bg)', borderColor: 'var(--warning-border)' } : undefined}
                         onClick={() => handleOpenAction(
                           'service',
                           s.id,
-                          'Observado',
-                          `Observar ${grupo.numeroOrden}`,
-                          'Ingresa el motivo u observación para el técnico.',
+                          'Aprobado',
+                          `Aprobar sin pago: ${grupo.numeroOrden}`,
+                          'Este servicio no se pagará ($0). Ingresa el comentario explicativo para el técnico:',
                           grupo.traslado?.id,
+                          true,
                         )}
                       >
-                        <AlertTriangle size={15} /> Observar
+                        <AlertTriangle size={15} /> Aprobado sin pago
                       </button>
                       <button
                         type="button"
@@ -1253,7 +1271,8 @@ export const AccountDetailPage = () => {
           const selectedTipo = serviceTypes.find((t) => t.id === selectedTypeId);
           const noChanges =
             selectedTypeId === serviceTypeTarget.tipo_servicio_id &&
-            (!adminEditTraslado || !adminEditTrasladoDestino);
+            (!adminEditTraslado || !adminEditTrasladoDestino) &&
+            !adminDeleteTraslado;
           const inputStyle: React.CSSProperties = {
             padding: '8px 10px',
             borderRadius: '8px',
@@ -1355,7 +1374,7 @@ export const AccountDetailPage = () => {
                       <input
                         type="checkbox"
                         checked={adminEditTraslado}
-                        onChange={(e) => setAdminEditTraslado(e.target.checked)}
+                        onChange={(e) => { setAdminEditTraslado(e.target.checked); if (e.target.checked) setAdminDeleteTraslado(false); }}
                         disabled={savingServiceType}
                       />
                       Cambiar también el destino del traslado
@@ -1404,6 +1423,21 @@ export const AccountDetailPage = () => {
                           </div>
                         )}
                       </>
+                    )}
+                    {/* Eliminar traslado */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={adminDeleteTraslado}
+                        onChange={(e) => { setAdminDeleteTraslado(e.target.checked); if (e.target.checked) setAdminEditTraslado(false); }}
+                        disabled={savingServiceType}
+                      />
+                      <span style={{ color: 'var(--danger-text)', fontWeight: 600 }}>Eliminar el traslado de esta orden</span>
+                    </label>
+                    {adminDeleteTraslado && (
+                      <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger-text)', fontSize: '12px' }}>
+                        Se eliminará el traslado permanentemente. El tipo del servicio sí cambia si seleccionas uno nuevo.
+                      </div>
                     )}
                   </div>
                 )}
@@ -1589,14 +1623,16 @@ export const AccountDetailPage = () => {
                       fontWeight: 600,
                       cursor: submitting ? 'wait' : 'pointer',
                       background:
-                        target.action === 'Aprobado'
-                          ? 'var(--success-solid)'
-                          : target.action === 'Observado'
-                            ? 'var(--warning-text)'
-                            : 'var(--danger-text)',
+                        target.isAprobadoSinPago
+                          ? 'var(--warning-text)'
+                          : target.action === 'Aprobado'
+                            ? 'var(--success-solid)'
+                            : target.action === 'Observado'
+                              ? 'var(--warning-text)'
+                              : 'var(--danger-text)',
                     }}
                   >
-                    {submitting ? 'Guardando…' : `Confirmar ${target.action}`}
+                    {submitting ? 'Guardando…' : target.isAprobadoSinPago ? 'Confirmar Aprobado sin pago' : `Confirmar ${target.action}`}
                   </button>
                 </div>
               </form>
