@@ -9,6 +9,7 @@ function normalizeAdmin(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 import { EstadoBadge } from '../../components/EstadoBadge';
+import { PdfDatosModal } from '../../components/PdfDatosModal';
 import { formatCOP, nombreMes } from '../../lib/period';
 import {
   ArrowLeft,
@@ -103,6 +104,7 @@ export const AccountDetailPage = () => {
   const [serviceValueInput, setServiceValueInput] = useState('');
   const [savingServiceValue, setSavingServiceValue] = useState(false);
   const [serviceValueError, setServiceValueError] = useState<string | null>(null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   const loadAccount = useCallback(async () => {
     if (!id) return;
@@ -318,7 +320,13 @@ export const AccountDetailPage = () => {
     (s) => s.requiere_valor_admin && Number(s.valor_cobrado) <= 0,
   );
 
-  const handleDescargarPdf = async () => {
+  const handleDescargarPdf = () => {
+    if (!account) return;
+    setShowPdfModal(true);
+  };
+
+  const handleConfirmPdf = async ({ nit, telefono }: { nit: string; telefono: string }) => {
+    setShowPdfModal(false);
     if (!account) return;
     const { downloadCuentaPdf } = await import('../../lib/pdf');
     downloadCuentaPdf({
@@ -341,6 +349,7 @@ export const AccountDetailPage = () => {
           noPaga,
         };
       }),
+      datosCobro: { nit, telefono },
     });
   };
 
@@ -1765,6 +1774,11 @@ export const AccountDetailPage = () => {
             </div>
           </div>
         )}
+        <PdfDatosModal
+          open={showPdfModal}
+          onClose={() => setShowPdfModal(false)}
+          onConfirm={handleConfirmPdf}
+        />
       </div>
     </MainLayout>
   );

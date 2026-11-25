@@ -1,4 +1,5 @@
 import { DatosCobroModal } from '../components/DatosCobroModal';
+import { PdfDatosModal } from '../components/PdfDatosModal';
 import type { DatosCobroApi } from '../services/technicianApi';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
@@ -517,36 +518,51 @@ export const TechnicianPortal = () => {
   );
 
   // ---- PDF ----
+  const [pendingPdfTarget, setPendingPdfTarget] = useState<'actual' | CuentaApi | null>(null);
 
-  const handleDescargarActual = async () => {
-    const { downloadCuentaPdf } = await import('../lib/pdf');
-    downloadCuentaPdf({
-      mes: periodo.mes,
-      anio: periodo.anio,
-      tecnico: user?.name ?? 'Técnico',
-      estado: radicada ? (cuenta?.estado ?? 'Pendiente') : 'Borrador',
-      firmaTecnico: cuenta?.firma_tecnico,
-      fechaFirma: cuenta?.fecha_firma,
-      servicios: ordenesAgrupadas.map((o) => {
-        const noPaga = o.totalValor === 0 || !!o.servicioPrincipal.ultima_observacion?.startsWith('[SIN PAGO]');
-        return {
-          orden: o.numeroOrden,
-          tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
-          descripcion: [
-            o.servicioPrincipal.descripcion_especifica,
-            o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
-          ].filter(Boolean).join(' · '),
-          valor: o.totalValor,
-          porDefinir: servicioSinValorAdmin(o.servicioPrincipal),
-          noPaga,
-        };
-      }),
-      totalPorDefinir: hayValorPorDefinir,
-    });
+  const handleDescargarActual = () => {
+    setPendingPdfTarget('actual');
   };
 
-  const handleDescargarHistorial = async (c: CuentaApi) => {
+  const handleDescargarHistorial = (c: CuentaApi) => {
+    setPendingPdfTarget(c);
+  };
+
+  const handleConfirmPdf = async ({ nit, telefono }: { nit: string; telefono: string }) => {
+    const targetPdf = pendingPdfTarget;
+    setPendingPdfTarget(null);
+    if (!targetPdf) return;
     const { downloadCuentaPdf } = await import('../lib/pdf');
+
+    if (targetPdf === 'actual') {
+      downloadCuentaPdf({
+        mes: periodo.mes,
+        anio: periodo.anio,
+        tecnico: user?.name ?? 'Técnico',
+        estado: radicada ? (cuenta?.estado ?? 'Pendiente') : 'Borrador',
+        firmaTecnico: cuenta?.firma_tecnico,
+        fechaFirma: cuenta?.fecha_firma,
+        servicios: ordenesAgrupadas.map((o) => {
+          const noPaga = o.totalValor === 0 || !!o.servicioPrincipal.ultima_observacion?.startsWith('[SIN PAGO]');
+          return {
+            orden: o.numeroOrden,
+            tipo: o.servicioPrincipal.tipo_servicio_nombre ?? '—',
+            descripcion: [
+              o.servicioPrincipal.descripcion_especifica,
+              o.traslado ? `Traslado: ${o.traslado.descripcion_especifica || 'Sí'}` : null,
+            ].filter(Boolean).join(' · '),
+            valor: o.totalValor,
+            porDefinir: servicioSinValorAdmin(o.servicioPrincipal),
+            noPaga,
+          };
+        }),
+        totalPorDefinir: hayValorPorDefinir,
+        datosCobro: { nit, telefono },
+      });
+      return;
+    }
+
+    const c = targetPdf;
     // Si viene con servicios, agruparlos también
     const ordenesH: Record<string, { orden: string; tipo: string; desc: string[]; valor: number; porDefinir: boolean }> = {};
     for (const s of c.servicios) {
@@ -586,6 +602,7 @@ export const TechnicianPortal = () => {
         noPaga: o.valor === 0,
       })),
       totalPorDefinir: (c.servicios ?? []).some(servicioSinValorAdmin),
+      datosCobro: { nit, telefono },
     });
   };
 
@@ -1472,6 +1489,11 @@ export const TechnicianPortal = () => {
         onClose={() => setShowDatosCobroModal(false)}
         onSave={handleSaveDatosCobro}
         initialData={datosCobro}
+      />
+      <PdfDatosModal
+        open={pendingPdfTarget !== null}
+        onClose={() => setPendingPdfTarget(null)}
+        onConfirm={handleConfirmPdf}
       />
     </MainLayout>
   );
