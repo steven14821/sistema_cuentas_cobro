@@ -325,7 +325,7 @@ export const AccountDetailPage = () => {
     setShowPdfModal(true);
   };
 
-  const handleConfirmPdf = async ({ nit, telefono }: { nit: string; telefono: string }) => {
+  const handleConfirmPdf = async ({ nit, telefono, numero_cuenta }: { nit: string; telefono: string; numero_cuenta: string }) => {
     setShowPdfModal(false);
     if (!account) return;
     const { downloadCuentaPdf } = await import('../../lib/pdf');
@@ -349,7 +349,7 @@ export const AccountDetailPage = () => {
           noPaga,
         };
       }),
-      datosCobro: { nit, telefono },
+      datosCobro: { nit, telefono, numero_cuenta },
     });
   };
 

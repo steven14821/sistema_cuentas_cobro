@@ -4,20 +4,23 @@ import { FileDown, X } from 'lucide-react';
 interface PdfDatosModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (datos: { nit: string; telefono: string }) => void;
+  onConfirm: (datos: { nit: string; telefono: string; numero_cuenta: string }) => void;
 }
 
 const STORAGE_KEY_NIT = 'cuenta_cobro_pdf_nit';
 const STORAGE_KEY_TEL = 'cuenta_cobro_pdf_telefono';
+const STORAGE_KEY_CUENTA = 'cuenta_cobro_pdf_numero_cuenta';
 
 export const PdfDatosModal: React.FC<PdfDatosModalProps> = ({ open, onClose, onConfirm }) => {
   const [nit, setNit] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [numeroCuenta, setNumeroCuenta] = useState('');
 
   useEffect(() => {
     if (open) {
       setNit(localStorage.getItem(STORAGE_KEY_NIT) ?? '');
       setTelefono(localStorage.getItem(STORAGE_KEY_TEL) ?? '');
+      setNumeroCuenta(localStorage.getItem(STORAGE_KEY_CUENTA) ?? '');
     }
   }, [open]);
 
@@ -27,10 +30,12 @@ export const PdfDatosModal: React.FC<PdfDatosModalProps> = ({ open, onClose, onC
     e.preventDefault();
     const cleanNit = nit.trim();
     const cleanTel = telefono.trim();
-    if (!cleanNit || !cleanTel) return;
+    const cleanCuenta = numeroCuenta.trim();
+    if (!cleanNit || !cleanTel || !cleanCuenta) return;
     localStorage.setItem(STORAGE_KEY_NIT, cleanNit);
     localStorage.setItem(STORAGE_KEY_TEL, cleanTel);
-    onConfirm({ nit: cleanNit, telefono: cleanTel });
+    localStorage.setItem(STORAGE_KEY_CUENTA, cleanCuenta);
+    onConfirm({ nit: cleanNit, telefono: cleanTel, numero_cuenta: cleanCuenta });
   };
 
   return (
@@ -85,7 +90,7 @@ export const PdfDatosModal: React.FC<PdfDatosModalProps> = ({ open, onClose, onC
         </div>
 
         <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-secondary, #64748b)' }}>
-          Ingresa el NIT / Cédula y el teléfono que aparecerán en la cuenta de cobro.
+          Ingresa el NIT / Cédula, teléfono y cuenta de ahorros que aparecerán en la cuenta de cobro.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -134,6 +139,28 @@ export const PdfDatosModal: React.FC<PdfDatosModalProps> = ({ open, onClose, onC
             />
           </div>
 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink, #0f172a)' }}>
+              Cuenta de ahorros
+            </label>
+            <input
+              type="text"
+              required
+              value={numeroCuenta}
+              onChange={(e) => setNumeroCuenta(e.target.value)}
+              placeholder="Ej: 123-456789-00"
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-strong, #cbd5e1)',
+                background: 'var(--surface, #fff)',
+                color: 'var(--ink, #0f172a)',
+                fontSize: '14px',
+                outline: 'none',
+              }}
+            />
+          </div>
+
           <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
             <button
               type="button"
@@ -154,7 +181,7 @@ export const PdfDatosModal: React.FC<PdfDatosModalProps> = ({ open, onClose, onC
             </button>
             <button
               type="submit"
-              disabled={!nit.trim() || !telefono.trim()}
+              disabled={!nit.trim() || !telefono.trim() || !numeroCuenta.trim()}
               style={{
                 flex: 1,
                 padding: '10px',
@@ -163,8 +190,8 @@ export const PdfDatosModal: React.FC<PdfDatosModalProps> = ({ open, onClose, onC
                 background: 'var(--brand-primary, #2563eb)',
                 color: '#fff',
                 fontWeight: 600,
-                cursor: !nit.trim() || !telefono.trim() ? 'not-allowed' : 'pointer',
-                opacity: !nit.trim() || !telefono.trim() ? 0.6 : 1,
+                cursor: !nit.trim() || !telefono.trim() || !numeroCuenta.trim() ? 'not-allowed' : 'pointer',
+                opacity: !nit.trim() || !telefono.trim() || !numeroCuenta.trim() ? 0.6 : 1,
                 fontSize: '13px',
               }}
             >

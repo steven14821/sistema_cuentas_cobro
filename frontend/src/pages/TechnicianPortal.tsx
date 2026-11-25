@@ -528,7 +528,7 @@ export const TechnicianPortal = () => {
     setPendingPdfTarget(c);
   };
 
-  const handleConfirmPdf = async ({ nit, telefono }: { nit: string; telefono: string }) => {
+  const handleConfirmPdf = async ({ nit, telefono, numero_cuenta }: { nit: string; telefono: string; numero_cuenta: string }) => {
     const targetPdf = pendingPdfTarget;
     setPendingPdfTarget(null);
     if (!targetPdf) return;
@@ -557,7 +557,7 @@ export const TechnicianPortal = () => {
           };
         }),
         totalPorDefinir: hayValorPorDefinir,
-        datosCobro: { nit, telefono },
+        datosCobro: { nit, telefono, numero_cuenta },
       });
       return;
     }
@@ -602,7 +602,7 @@ export const TechnicianPortal = () => {
         noPaga: o.valor === 0,
       })),
       totalPorDefinir: (c.servicios ?? []).some(servicioSinValorAdmin),
-      datosCobro: { nit, telefono },
+      datosCobro: { nit, telefono, numero_cuenta },
     });
   };
 
