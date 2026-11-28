@@ -78,6 +78,12 @@ export interface MyAccountResponse {
     fecha_vencimiento: string;
     motivo: string | null;
   } | null;
+  ordenesEliminadas?: Array<{
+    id: string;
+    orden: string;
+    motivo: string;
+    fecha: string | null;
+  }>;
   puedeEditar?: boolean;
 }
 

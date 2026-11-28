@@ -95,11 +95,13 @@ export const TechnicianPortal = () => {
     tieneExcepcion: boolean;
     excepcion: { id: string; fecha_vencimiento: string; motivo: string | null } | null;
     puedeEditar: boolean;
+    ordenesEliminadas: Array<{ id: string; orden: string; motivo: string; fecha: string | null }>;
   }>({
     ventanaAbierta: isVentanaAbierta(hoy.dia),
     tieneExcepcion: false,
     excepcion: null,
     puedeEditar: isVentanaAbierta(hoy.dia),
+    ordenesEliminadas: [],
   });
 
   const [tipos, setTipos] = useState<TipoServicioApi[]>([]);
@@ -196,6 +198,7 @@ export const TechnicianPortal = () => {
       tieneExcepcion: !!res.tieneExcepcion,
       excepcion: res.excepcion ?? null,
       puedeEditar: res.puedeEditar ?? ((res.ventanaAbierta || !!res.tieneExcepcion) && !res.cuenta?.radicada),
+      ordenesEliminadas: res.ordenesEliminadas ?? [],
     });
     return res;
   }, [hoy.dia, user?.id]);
@@ -808,6 +811,36 @@ export const TechnicianPortal = () => {
               {enCorreccion && (
                 <div className="account-correction-notice" role="status">
                   La cuenta fue devuelta para corrección. Puedes editar, agregar o quitar órdenes; al terminar, envíala de nuevo a revisión.
+                </div>
+              )}
+              {accountMeta.ordenesEliminadas.length > 0 && (
+                <div
+                  role="alert"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.08))',
+                    color: 'var(--danger-text, #dc2626)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    fontSize: '13px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                    <AlertTriangle size={16} />
+                    <span>Órdenes eliminadas por el administrador:</span>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {accountMeta.ordenesEliminadas.map((item) => (
+                      <li key={item.id}>
+                        <strong>Orden {item.orden.replace(/^(BUC|CUC)-/i, '')}</strong>
+                        {item.motivo ? `: ${item.motivo}` : ''}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {puedeEditar && !radicada && (

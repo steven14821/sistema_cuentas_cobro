@@ -759,6 +759,28 @@ export class ServicesService {
     const esCuentaEnCorreccion = !!serializedCuenta && serializedCuenta.radicada && ['Observado', 'Rechazado'].includes(serializedCuenta.estado ?? '');
     const puedeEditar = esCuentaEnCorreccion || ((ventanaAbierta || !!excepcion) && (!serializedCuenta || !serializedCuenta.radicada));
 
+    const eliminadasRaw = await this.prisma.excepciones_carga.findMany({
+      where: {
+        usuario_id: usuarioId,
+        motivo: { startsWith: '[ORDEN_ELIMINADA]' },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    });
+
+    const ordenesEliminadas = eliminadasRaw.map((e: any) => {
+      const raw = String(e.motivo ?? '').replace(/^\[ORDEN_ELIMINADA\]\s*/, '');
+      const sepIdx = raw.indexOf('|');
+      const orden = sepIdx >= 0 ? raw.slice(0, sepIdx).trim() : raw;
+      const motivo = sepIdx >= 0 ? raw.slice(sepIdx + 1).trim() : '';
+      return {
+        id: e.id,
+        orden,
+        motivo,
+        fecha: e.created_at ?? null,
+      };
+    });
+
     return {
       periodo,
       cuenta: serializedCuenta,
@@ -772,6 +794,7 @@ export class ServicesService {
           }
         : null,
       puedeEditar,
+      ordenesEliminadas,
     };
   }
 

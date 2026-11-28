@@ -4,7 +4,7 @@ import { ServicesService } from './services.service.js';
 
 function makePrisma() {
   const prisma: any = {
-    excepciones_carga: { findFirst: vi.fn() },
+    excepciones_carga: { findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
     tipos_servicio: { findUnique: vi.fn() },
     cuentas_cobro: {
       findUnique: vi.fn(),

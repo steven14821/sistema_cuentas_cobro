@@ -262,6 +262,15 @@ export class AdminService {
             numero_orden: `T-${numOrden}`,
           },
         });
+
+        await tx.excepciones_carga.create({
+          data: {
+            usuario_id: servicio.cuentas_cobro.usuario_id,
+            fecha_vencimiento: new Date('1970-01-01T00:00:00.000Z'),
+            creado_por: adminId,
+            motivo: `[ORDEN_ELIMINADA] ${numOrden}|${obsTexto}`,
+          },
+        });
       }
 
       await tx.cuentas_cobro.update({
@@ -722,6 +731,11 @@ export class AdminService {
 
   async getExceptions() {
     const excepciones = await this.prisma.excepciones_carga.findMany({
+      where: {
+        NOT: {
+          motivo: { startsWith: '[ORDEN_ELIMINADA]' },
+        },
+      },
       include: {
         usuarios_excepciones_carga_usuario_idTousuarios: {
           select: { nombre_completo: true, email: true },
