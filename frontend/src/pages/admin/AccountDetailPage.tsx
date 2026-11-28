@@ -97,6 +97,9 @@ export const AccountDetailPage = () => {
   const [adminEditMarca, setAdminEditMarca] = useState<string>('SAMSUNG');
   const [adminEditTraslado, setAdminEditTraslado] = useState(false);
   const [adminDeleteTraslado, setAdminDeleteTraslado] = useState(false);
+  const [confirmingDeleteOrder, setConfirmingDeleteOrder] = useState(false);
+  const [deleteOrderComment, setDeleteOrderComment] = useState('');
+  const [deletingOrder, setDeletingOrder] = useState(false);
   const [adminEditTrasladoDestino, setAdminEditTrasladoDestino] = useState('');
   const [adminEditTrasladoTransporte, setAdminEditTrasladoTransporte] = useState<'MOTO_PROPIA' | 'VEHICULO_EMPRESA'>('MOTO_PROPIA');
   const [adminEditTrasladoTypeId, setAdminEditTrasladoTypeId] = useState('');
@@ -185,6 +188,8 @@ export const AccountDetailPage = () => {
     setServiceTypeOrden(orden ?? null);
     setAdminEditTraslado(false);
     setAdminDeleteTraslado(false);
+    setConfirmingDeleteOrder(false);
+    setDeleteOrderComment('');
 
     // Detect brand from current service type name
     const currentNombre = service.tipo_servicio_nombre ?? '';
@@ -1573,15 +1578,134 @@ export const AccountDetailPage = () => {
                 )}
 
                 {serviceTypeError && <p className="service-type-error" role="alert">{serviceTypeError}</p>}
-                <div className="service-type-actions">
-                  <button type="button" onClick={() => setServiceTypeTarget(null)} disabled={savingServiceType}>Cancelar</button>
-                  <button
-                    type="submit"
-                    disabled={loadingServiceTypes || savingServiceType || !selectedTypeId || noChanges}
+
+                {confirmingDeleteOrder ? (
+                  <div
+                    style={{
+                      padding: '14px',
+                      borderRadius: '10px',
+                      background: 'var(--danger-bg, rgba(239, 68, 68, 0.08))',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }}
                   >
-                    {savingServiceType ? 'Guardando…' : 'Guardar cambios'}
-                  </button>
-                </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger-text)', fontWeight: 700, fontSize: '13px' }}>
+                      <Trash2 size={16} />
+                      <span>¿Estás seguro de eliminar esta orden?</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--danger-text)' }}>
+                      Se eliminará permanentemente la orden {serviceTypeTarget.numero_orden.replace(/^(T-)?(BUC|CUC)-/i, '')}
+                      {serviceTypeOrden?.traslado ? ' junto con su traslado' : ''}, y se liberará el número de orden para que el técnico pueda volver a subirla.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--danger-text)' }}>
+                        Comentario para el técnico (obligatorio)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={deleteOrderComment}
+                        onChange={(e) => setDeleteOrderComment(e.target.value)}
+                        placeholder="Indica el motivo por el cual se elimina esta orden..."
+                        disabled={deletingOrder}
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(239, 68, 68, 0.4)',
+                          background: 'var(--surface)',
+                          color: 'var(--ink)',
+                          fontSize: '13px',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmingDeleteOrder(false);
+                          setDeleteOrderComment('');
+                        }}
+                        disabled={deletingOrder}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--ink)',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Volver
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingOrder || !deleteOrderComment.trim()}
+                        onClick={async () => {
+                          if (!serviceTypeTarget || !deleteOrderComment.trim()) return;
+                          setDeletingOrder(true);
+                          setServiceTypeError(null);
+                          try {
+                            await reviewApi.deleteService(serviceTypeTarget.id, deleteOrderComment.trim());
+                            setServiceTypeTarget(null);
+                            setConfirmingDeleteOrder(false);
+                            setDeleteOrderComment('');
+                            await loadAccount();
+                          } catch (err) {
+                            setServiceTypeError(err instanceof Error ? err.message : 'No se pudo eliminar la orden.');
+                          } finally {
+                            setDeletingOrder(false);
+                          }
+                        }}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'var(--danger-text, #dc2626)',
+                          color: '#fff',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: deletingOrder || !deleteOrderComment.trim() ? 'not-allowed' : 'pointer',
+                          opacity: deletingOrder || !deleteOrderComment.trim() ? 0.6 : 1,
+                        }}
+                      >
+                        {deletingOrder ? 'Eliminando…' : 'Sí, eliminar orden'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="service-type-actions" style={{ justifyContent: 'space-between' }}>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDeleteOrder(true)}
+                      disabled={savingServiceType}
+                      style={{
+                        background: 'var(--danger-bg, rgba(239, 68, 68, 0.1))',
+                        color: 'var(--danger-text, #dc2626)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Trash2 size={14} /> Eliminar orden
+                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button type="button" onClick={() => setServiceTypeTarget(null)} disabled={savingServiceType}>Cancelar</button>
+                      <button
+                        type="submit"
+                        disabled={loadingServiceTypes || savingServiceType || !selectedTypeId || noChanges}
+                      >
+                        {savingServiceType ? 'Guardando…' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </form>
             </div>
           );

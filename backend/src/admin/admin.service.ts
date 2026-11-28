@@ -221,7 +221,7 @@ export class AdminService {
     };
   }
 
-  async deleteService(servicioId: string, adminId: string) {
+  async deleteService(servicioId: string, adminId: string, observacion?: string) {
     return this.prisma.$transaction(async (tx: any) => {
       const servicio = await tx.servicios.findUnique({
         where: { id: servicioId },
@@ -231,8 +231,12 @@ export class AdminService {
         throw new NotFoundException('Servicio no encontrado.');
       }
       if (!servicio.cuentas_cobro?.radicada) {
-        throw new BadRequestException('Solo se pueden eliminar traslados de cuentas radicadas.');
+        throw new BadRequestException('Solo se pueden eliminar servicios de cuentas radicadas.');
       }
+
+      const obsTexto = observacion?.trim()
+        ? observacion.trim()
+        : `Servicio/Traslado eliminado por el administrador (${servicio.tipos_servicio?.nombre ?? servicio.numero_orden}).`;
 
       await tx.auditoria_servicios.create({
         data: {
@@ -240,7 +244,7 @@ export class AdminService {
           usuario_admin_id: adminId,
           estado_anterior: servicio.estado as any,
           estado_nuevo: servicio.estado as any,
-          observacion: `Servicio/Traslado eliminado por el administrador (${servicio.tipos_servicio?.nombre ?? servicio.numero_orden}).`,
+          observacion: obsTexto,
           fecha_accion: new Date(),
         },
       });
@@ -248,6 +252,17 @@ export class AdminService {
       await tx.servicios.delete({
         where: { id: servicioId },
       });
+
+      // Si es una orden principal (no traslado), eliminar también su traslado asociado si existe
+      const numOrden = String(servicio.numero_orden ?? '');
+      if (!numOrden.startsWith('T-')) {
+        await tx.servicios.deleteMany({
+          where: {
+            cuenta_cobro_id: servicio.cuenta_cobro_id,
+            numero_orden: `T-${numOrden}`,
+          },
+        });
+      }
 
       await tx.cuentas_cobro.update({
         where: { id: servicio.cuenta_cobro_id },

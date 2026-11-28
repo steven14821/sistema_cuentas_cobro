@@ -33,8 +33,12 @@ export class AdminController {
   @Delete('services/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin')
-  async deleteService(@Request() req: any, @Param('id') id: string) {
-    return this.adminService.deleteService(id, req.user!.id);
+  async deleteService(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body?: { observacion?: string },
+  ) {
+    return this.adminService.deleteService(id, req.user!.id, body?.observacion);
   }
 
   @Patch('services/:id/type')

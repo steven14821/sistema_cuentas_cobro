@@ -247,9 +247,10 @@ export const reviewApi = {
       body: JSON.stringify({ valor_cobrado }),
     }),
 
-  deleteService: (id: string) =>
+  deleteService: (id: string, observacion?: string) =>
     apiFetch<{ deleted: boolean }>(`${BASE}/services/${id}`, {
       method: 'DELETE',
+      body: observacion ? JSON.stringify({ observacion }) : undefined,
     }),
 
   getAccounts: (params?: { mes?: number; anio?: number; estado?: EstadoServicio; usuario_id?: string }) => {
