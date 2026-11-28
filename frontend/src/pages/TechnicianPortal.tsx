@@ -813,36 +813,6 @@ export const TechnicianPortal = () => {
                   La cuenta fue devuelta para corrección. Puedes editar, agregar o quitar órdenes; al terminar, envíala de nuevo a revisión.
                 </div>
               )}
-              {accountMeta.ordenesEliminadas.length > 0 && (
-                <div
-                  role="alert"
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.08))',
-                    color: 'var(--danger-text, #dc2626)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    fontSize: '13px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-                    <AlertTriangle size={16} />
-                    <span>Órdenes eliminadas por el administrador:</span>
-                  </div>
-                  <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {accountMeta.ordenesEliminadas.map((item) => (
-                      <li key={item.id}>
-                        <strong>Orden {item.orden.replace(/^(BUC|CUC)-/i, '')}</strong>
-                        {item.motivo ? `: ${item.motivo}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
               {puedeEditar && !radicada && (
                 <button
                   onClick={() => {
@@ -897,6 +867,37 @@ export const TechnicianPortal = () => {
             </div>
           )}
         </header>
+
+        {accountMeta.ordenesEliminadas.length > 0 && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: '20px',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.08))',
+              color: 'var(--danger-text, #dc2626)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: '13px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+              <AlertTriangle size={16} />
+              <span>Órdenes eliminadas por el administrador:</span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {accountMeta.ordenesEliminadas.map((item) => (
+                <li key={item.id}>
+                  <strong>Orden {item.orden.replace(/^(BUC|CUC)-/i, '')}</strong>
+                  {item.motivo ? `: ${item.motivo}` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {cuenta && puedeFirmarCuenta(cuenta) && (
           <div className="signature-prompt" role="status">
